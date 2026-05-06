@@ -20,7 +20,7 @@ from service_manager import ServiceManager
 app = Flask(__name__)
 app.config.from_object(Config)
 
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='gevent')
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
