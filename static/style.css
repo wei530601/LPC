@@ -1588,6 +1588,196 @@ body {
     animation: fadeIn 0.3s ease-out;
 }
 
+/* ========== 浅色主题 ========== */
+body.light-theme {
+    background: #ffffff;
+    color: #2c3e50;
+}
+
+body.light-theme .sidebar {
+    background: #ecf0f1;
+    color: #2c3e50;
+    border-right: 1px solid #bdc3c7;
+}
+
+body.light-theme .sidebar-header {
+    border-bottom: 1px solid #bdc3c7;
+}
+
+body.light-theme .sidebar-header h1 {
+    color: #2c3e50;
+}
+
+body.light-theme .nav-item {
+    color: #2c3e50;
+}
+
+body.light-theme .nav-item:hover {
+    background: #d5dbdb;
+}
+
+body.light-theme .nav-item.active {
+    background: #3498db;
+    color: white;
+}
+
+body.light-theme .logout-btn {
+    background: #e74c3c;
+    color: white;
+}
+
+body.light-theme main {
+    background: #f8f9fa;
+}
+
+body.light-theme .page-header h2 {
+    color: #2c3e50;
+}
+
+body.light-theme .card,
+body.light-theme .card-group {
+    background: white;
+    border: 1px solid #dee2e6;
+}
+
+body.light-theme .card-header h3,
+body.light-theme .collapsible-header {
+    color: #2c3e50;
+    background: #f8f9fa;
+}
+
+body.light-theme .collapsible-header:hover {
+    background: #e9ecef;
+}
+
+body.light-theme .card-body,
+body.light-theme .collapsible-body {
+    color: #495057;
+}
+
+body.light-theme .btn {
+    background: #6c757d;
+    color: white;
+}
+
+body.light-theme .btn:hover {
+    background: #5a6268;
+}
+
+body.light-theme .btn-primary {
+    background: #007bff;
+}
+
+body.light-theme .btn-primary:hover {
+    background: #0056b3;
+}
+
+body.light-theme .btn-success {
+    background: #28a745;
+}
+
+body.light-theme .btn-danger {
+    background: #dc3545;
+}
+
+body.light-theme .btn-warning {
+    background: #ffc107;
+    color: #212529;
+}
+
+body.light-theme .modern-table {
+    border: 1px solid #dee2e6;
+}
+
+body.light-theme .modern-table th {
+    background: #e9ecef;
+    color: #495057;
+}
+
+body.light-theme .modern-table td {
+    color: #212529;
+    border-bottom: 1px solid #dee2e6;
+}
+
+body.light-theme .modern-table tr:hover {
+    background: #f8f9fa;
+}
+
+body.light-theme .stat-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+body.light-theme .stat-card.blue {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+body.light-theme .stat-card.green {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+}
+
+body.light-theme .stat-card.orange {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+body.light-theme .stat-card.red {
+    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+}
+
+body.light-theme .info-label {
+    color: #6c757d;
+}
+
+body.light-theme .info-value {
+    color: #212529;
+}
+
+body.light-theme .badge {
+    background: #6c757d;
+    color: white;
+}
+
+body.light-theme .badge-success {
+    background: #28a745;
+}
+
+body.light-theme .badge-danger {
+    background: #dc3545;
+}
+
+body.light-theme .badge-warning {
+    background: #ffc107;
+    color: #212529;
+}
+
+body.light-theme input,
+body.light-theme select,
+body.light-theme textarea {
+    background: white;
+    color: #495057;
+    border: 1px solid #ced4da;
+}
+
+body.light-theme input:focus,
+body.light-theme select:focus,
+body.light-theme textarea:focus {
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+}
+
+body.light-theme .tab-btn {
+    background: #e9ecef;
+    color: #495057;
+    border: 1px solid #dee2e6;
+}
+
+body.light-theme .tab-btn.active {
+    background: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+
 /* 改进输入框 */
 input[type="text"],
 input[type="password"],

@@ -17,10 +17,11 @@ from system_info import SystemInfo
 from file_manager import FileManager
 from service_manager import ServiceManager
 from system_control import SystemControl
-from history_data import HistoryData
 from docker_manager import DockerManager
 from apt_manager import AptManager
 from user_manager import UserManager
+from network_manager import NetworkManager
+from performance_analyzer import PerformanceAnalyzer
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -31,7 +32,8 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'
 
 file_manager = FileManager(Config.FILE_ROOT)
-history_data = HistoryData()
+network_manager = NetworkManager()
+performance_analyzer = PerformanceAnalyzer()
 
 # 告警阈值配置
 ALERT_THRESHOLDS = {
@@ -43,32 +45,6 @@ ALERT_THRESHOLDS = {
 
 # 存储终端会话
 terminals = {}
-
-# 后台任务：定期记录历史数据
-def background_data_recorder():
-    """后台任务：每分钟记录一次系统数据"""
-    import time
-    # 启动时立即记录一次
-    try:
-        system_info = SystemInfo.get_all()
-        history_data.add_record(system_info)
-        history_data.save_data()
-    except Exception as e:
-        print(f"初始记录历史数据失败: {e}")
-    
-    while True:
-        try:
-            time.sleep(60)  # 每60秒记录一次
-            system_info = SystemInfo.get_all()
-            history_data.add_record(system_info)
-            history_data.save_data()
-        except Exception as e:
-            print(f"记录历史数据失败: {e}")
-
-# 启动后台任务
-def start_background_tasks():
-    recorder_thread = threading.Thread(target=background_data_recorder, daemon=True)
-    recorder_thread.start()
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -170,21 +146,7 @@ def get_processes():
 def kill_process(pid):
     return jsonify(SystemControl.kill_process(pid))
 
-# ============ 历史数据API ============
-
-@app.route('/api/history/<metric>')
-@login_required
-def get_history(metric):
-    duration = request.args.get('duration', '1h')
-    records = history_data.get_records(metric, duration)
-    return jsonify({'success': True, 'data': records})
-
-@app.route('/api/history/statistics')
-@login_required
-def get_statistics():
-    duration = request.args.get('duration', '24h')
-    stats = history_data.get_all_statistics(duration)
-    return jsonify({'success': True, 'statistics': stats})
+# ============ 告警检查API ============
 
 @app.route('/api/alerts/check')
 @login_required
@@ -246,6 +208,199 @@ def check_alerts():
             })
     
     return jsonify({'success': True, 'alerts': alerts})
+
+# ============ 网络管理API ============
+
+@app.route('/api/network/wifi/scan')
+@login_required
+def wifi_scan():
+    """扫描WiFi网络"""
+    networks = network_manager.scan_wifi()
+    return jsonify({'success': True, 'networks': networks})
+
+@app.route('/api/network/wifi/current')
+@login_required
+def wifi_current():
+    """获取当前WiFi连接"""
+    current = network_manager.get_current_wifi()
+    return jsonify({'success': True, 'wifi': current})
+
+@app.route('/api/network/wifi/connect', methods=['POST'])
+@login_required
+def wifi_connect():
+    """连接WiFi"""
+    data = request.get_json()
+    ssid = data.get('ssid')
+    password = data.get('password')
+    
+    success, message = network_manager.connect_wifi(ssid, password)
+    return jsonify({'success': success, 'message': message})
+
+@app.route('/api/network/wifi/disconnect', methods=['POST'])
+@login_required
+def wifi_disconnect():
+    """断开WiFi"""
+    success, message = network_manager.disconnect_wifi()
+    return jsonify({'success': success, 'message': message})
+
+@app.route('/api/network/interfaces')
+@login_required
+def network_interfaces():
+    """获取网络接口"""
+    interfaces = network_manager.get_network_interfaces()
+    return jsonify({'success': True, 'interfaces': interfaces})
+
+@app.route('/api/network/dns')
+@login_required
+def network_dns():
+    """获取DNS服务器"""
+    dns_servers = network_manager.get_dns_servers()
+    return jsonify({'success': True, 'dns_servers': dns_servers})
+
+@app.route('/api/network/firewall/status')
+@login_required
+def firewall_status():
+    """获取防火墙状态"""
+    if not network_manager.is_ufw_installed():
+        return jsonify({'success': False, 'message': 'UFW未安装'})
+    
+    status = network_manager.get_ufw_status()
+    return jsonify({'success': True, 'status': status})
+
+@app.route('/api/network/firewall/enable', methods=['POST'])
+@login_required
+def firewall_enable():
+    """启用防火墙"""
+    success = network_manager.ufw_enable()
+    return jsonify({'success': success})
+
+@app.route('/api/network/firewall/disable', methods=['POST'])
+@login_required
+def firewall_disable():
+    """禁用防火墙"""
+    success = network_manager.ufw_disable()
+    return jsonify({'success': success})
+
+@app.route('/api/network/firewall/rule/add', methods=['POST'])
+@login_required
+def firewall_add_rule():
+    """添加防火墙规则"""
+    data = request.get_json()
+    port = data.get('port')
+    protocol = data.get('protocol', 'tcp')
+    action = data.get('action', 'allow')
+    
+    success, message = network_manager.ufw_add_rule(port, protocol, action)
+    return jsonify({'success': success, 'message': message})
+
+@app.route('/api/network/firewall/rule/delete', methods=['POST'])
+@login_required
+def firewall_delete_rule():
+    """删除防火墙规则"""
+    data = request.get_json()
+    port = data.get('port')
+    protocol = data.get('protocol', 'tcp')
+    
+    success, message = network_manager.ufw_delete_rule(port, protocol)
+    return jsonify({'success': success, 'message': message})
+
+@app.route('/api/network/ports')
+@login_required
+def network_ports():
+    """获取监听端口"""
+    ports = network_manager.get_listening_ports()
+    return jsonify({'success': True, 'ports': ports})
+
+@app.route('/api/network/connections')
+@login_required
+def network_connections():
+    """获取网络连接统计"""
+    stats = network_manager.get_network_connections()
+    return jsonify({'success': True, 'stats': stats})
+
+@app.route('/api/network/stats')
+@login_required
+def network_stats():
+    """获取网络流量统计"""
+    stats = network_manager.get_network_stats()
+    return jsonify({'success': True, 'stats': stats})
+
+# ============ 性能分析API ============
+
+@app.route('/api/performance/processes/cpu')
+@login_required
+def performance_cpu_processes():
+    """获取CPU占用最高的进程"""
+    limit = request.args.get('limit', 10, type=int)
+    processes = performance_analyzer.get_top_processes_by_cpu(limit)
+    return jsonify({'success': True, 'processes': processes})
+
+@app.route('/api/performance/processes/memory')
+@login_required
+def performance_memory_processes():
+    """获取内存占用最高的进程"""
+    limit = request.args.get('limit', 10, type=int)
+    processes = performance_analyzer.get_top_processes_by_memory(limit)
+    return jsonify({'success': True, 'processes': processes})
+
+@app.route('/api/performance/process/<int:pid>')
+@login_required
+def performance_process_details(pid):
+    """获取进程详细信息"""
+    details = performance_analyzer.get_process_details(pid)
+    if details:
+        return jsonify({'success': True, 'process': details})
+    else:
+        return jsonify({'success': False, 'message': '进程不存在'}), 404
+
+@app.route('/api/performance/disk/io')
+@login_required
+def performance_disk_io():
+    """获取磁盘I/O统计"""
+    stats = performance_analyzer.get_disk_io_stats()
+    return jsonify({'success': True, 'stats': stats})
+
+@app.route('/api/performance/network/connections')
+@login_required
+def performance_network_connections():
+    """获取详细网络连接"""
+    connections = performance_analyzer.get_network_connections_detailed()
+    return jsonify({'success': True, 'connections': connections})
+
+@app.route('/api/performance/network/io')
+@login_required
+def performance_network_io():
+    """获取网络I/O统计"""
+    stats = performance_analyzer.get_network_io_stats()
+    return jsonify({'success': True, 'stats': stats})
+
+@app.route('/api/performance/load')
+@login_required
+def performance_load():
+    """获取系统负载"""
+    load = performance_analyzer.get_system_load()
+    return jsonify({'success': True, 'load': load})
+
+@app.route('/api/performance/cpu/stats')
+@login_required
+def performance_cpu_stats():
+    """获取CPU详细统计"""
+    stats = performance_analyzer.get_cpu_stats()
+    return jsonify({'success': True, 'stats': stats})
+
+@app.route('/api/performance/memory/details')
+@login_required
+def performance_memory_details():
+    """获取内存详细信息"""
+    details = performance_analyzer.get_memory_details()
+    return jsonify({'success': True, 'details': details})
+
+@app.route('/api/performance/summary')
+@login_required
+def performance_summary():
+    """获取性能综合摘要"""
+    summary = performance_analyzer.get_performance_summary()
+    return jsonify({'success': True, 'summary': summary})
 
 # ============ 系统更新API ============
 
@@ -916,5 +1071,4 @@ def terminal_disconnect():
 if __name__ == '__main__':
     os.makedirs('sessions', exist_ok=True)
     os.makedirs('data', exist_ok=True)
-    start_background_tasks()
     socketio.run(app, host='0.0.0.0', port=5000, debug=False)

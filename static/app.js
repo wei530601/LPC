@@ -62,8 +62,10 @@ document.querySelectorAll('.nav-item').forEach(item => {
             applySettings();
         } else if (page === 'control') {
             loadSystemControl();
-        } else if (page === 'history') {
-            loadHistoryData();
+        } else if (page === 'network') {
+            loadNetworkPage();
+        } else if (page === 'performance') {
+            loadPerformancePage();
         }
     });
 });
@@ -684,10 +686,19 @@ function saveSettings() {
 function applySettings() {
     const refreshInterval = localStorage.getItem('refreshInterval') || '2';
     const terminalFontSize = localStorage.getItem('terminalFontSize') || '14';
+    const theme = localStorage.getItem('theme') || 'dark';
     
     // 更新界面
     document.getElementById('refresh-interval').value = refreshInterval;
     document.getElementById('terminal-font-size').value = terminalFontSize;
+    document.getElementById('theme-select').value = theme;
+    
+    // 应用主题
+    if (theme === 'light') {
+        document.body.classList.add('light-theme');
+    } else {
+        document.body.classList.remove('light-theme');
+    }
     
     // 应用仪表板刷新间隔
     if (dashboardInterval) {
@@ -701,6 +712,20 @@ function applySettings() {
         if (fitAddon) {
             fitAddon.fit();
         }
+    }
+}
+
+// 切换主题
+function changeTheme() {
+    const theme = document.getElementById('theme-select').value;
+    localStorage.setItem('theme', theme);
+    
+    if (theme === 'light') {
+        document.body.classList.add('light-theme');
+        showMessage('已切换到浅色主题', 'success');
+    } else {
+        document.body.classList.remove('light-theme');
+        showMessage('已切换到深色主题', 'success');
     }
 }
 
@@ -1021,250 +1046,6 @@ async function loadSystemLogs() {
         }
     } catch (error) {
         document.getElementById('system-logs').textContent = '加载日志失败: ' + error.message;
-    }
-}
-
-// ==================== 历史数据功能 ====================
-
-let currentDuration = '24h';
-let charts = {};
-
-// 加载历史数据
-async function loadHistoryData() {
-    await loadStatistics();
-    await loadCharts();
-}
-
-// 切换时间范围
-function changeDuration(duration) {
-    currentDuration = duration;
-    
-    // 更新按钮状态
-    document.querySelectorAll('.duration-selector .btn').forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.dataset.duration === duration) {
-            btn.classList.add('active');
-        }
-    });
-    
-    loadHistoryData();
-}
-
-// 加载统计信息
-async function loadStatistics() {
-    try {
-        const response = await fetch(`/api/history/statistics?duration=${currentDuration}`);
-        const data = await response.json();
-        
-        if (data.success) {
-            const stats = data.statistics;
-            
-            // CPU
-            document.getElementById('stat-cpu-current').textContent = stats.cpu.current + '%';
-            document.getElementById('stat-cpu-avg').textContent = stats.cpu.avg + '%';
-            document.getElementById('stat-cpu-max').textContent = stats.cpu.max + '%';
-            
-            // 内存
-            document.getElementById('stat-memory-current').textContent = stats.memory.current + '%';
-            document.getElementById('stat-memory-avg').textContent = stats.memory.avg + '%';
-            document.getElementById('stat-memory-max').textContent = stats.memory.max + '%';
-            
-            // 温度
-            document.getElementById('stat-temp-current').textContent = stats.temperature.current + '°C';
-            document.getElementById('stat-temp-avg').textContent = stats.temperature.avg + '°C';
-            document.getElementById('stat-temp-max').textContent = stats.temperature.max + '°C';
-        }
-    } catch (error) {
-        console.error('加载统计信息失败:', error);
-    }
-}
-
-// 加载图表
-async function loadCharts() {
-    await loadChart('cpu', 'CPU 使用率 (%)', '#4CAF50');
-    await loadChart('memory', '内存使用率 (%)', '#2196F3');
-    await loadChart('temperature', '温度 (°C)', '#FF9800');
-    await loadNetworkChart();
-}
-
-// 加载单个图表
-async function loadChart(metric, label, color) {
-    try {
-        const response = await fetch(`/api/history/${metric}?duration=${currentDuration}`);
-        const data = await response.json();
-        
-        if (data.success) {
-            const chartId = `${metric}-chart`;
-            const ctx = document.getElementById(chartId);
-            
-            // 销毁旧图表
-            if (charts[chartId]) {
-                charts[chartId].destroy();
-            }
-            
-            // 创建新图表
-            charts[chartId] = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: data.data.map(d => new Date(d.time).toLocaleTimeString('zh-CN', { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                    })),
-                    datasets: [{
-                        label: label,
-                        data: data.data.map(d => d.value),
-                        borderColor: color,
-                        backgroundColor: color + '20',
-                        tension: 0.4,
-                        fill: true
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    },
-                    scales: {
-                        y: {
-                            display: true,
-                            beginAtZero: true,
-                            grid: {
-                                display: true,
-                                color: 'rgba(255, 255, 255, 0.1)'
-                            },
-                            ticks: {
-                                display: true,
-                                color: '#ecf0f1',
-                                font: {
-                                    size: 12
-                                }
-                            }
-                        },
-                        x: {
-                            display: true,
-                            grid: {
-                                display: true,
-                                color: 'rgba(255, 255, 255, 0.1)'
-                            },
-                            ticks: {
-                                display: true,
-                                color: '#ecf0f1',
-                                font: {
-                                    size: 11
-                                },
-                                maxRotation: 45,
-                                minRotation: 45
-                            }
-                        }
-                    }
-                }
-            });
-        }
-    } catch (error) {
-        console.error(`加载${metric}图表失败:`, error);
-    }
-}
-
-// 加载网络图表
-async function loadNetworkChart() {
-    try {
-        const [sentResponse, recvResponse] = await Promise.all([
-            fetch(`/api/history/network_sent?duration=${currentDuration}`),
-            fetch(`/api/history/network_recv?duration=${currentDuration}`)
-        ]);
-        
-        const sentData = await sentResponse.json();
-        const recvData = await recvResponse.json();
-        
-        if (sentData.success && recvData.success) {
-            const chartId = 'network-chart';
-            const ctx = document.getElementById(chartId);
-            
-            if (charts[chartId]) {
-                charts[chartId].destroy();
-            }
-            
-            charts[chartId] = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: sentData.data.map(d => new Date(d.time).toLocaleTimeString('zh-CN', { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                    })),
-                    datasets: [
-                        {
-                            label: '发送 (MB)',
-                            data: sentData.data.map(d => d.value),
-                            borderColor: '#E91E63',
-                            backgroundColor: '#E91E6320',
-                            tension: 0.4,
-                            fill: true
-                        },
-                        {
-                            label: '接收 (MB)',
-                            data: recvData.data.map(d => d.value),
-                            borderColor: '#9C27B0',
-                            backgroundColor: '#9C27B020',
-                            tension: 0.4,
-                            fill: true
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: true,
-                            labels: {
-                                color: '#ecf0f1',
-                                font: {
-                                    size: 12
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            display: true,
-                            beginAtZero: true,
-                            grid: {
-                                display: true,
-                                color: 'rgba(255, 255, 255, 0.1)'
-                            },
-                            ticks: {
-                                display: true,
-                                color: '#ecf0f1',
-                                font: {
-                                    size: 12
-                                }
-                            }
-                        },
-                        x: {
-                            display: true,
-                            grid: {
-                                display: true,
-                                color: 'rgba(255, 255, 255, 0.1)'
-                            },
-                            ticks: {
-                                display: true,
-                                color: '#ecf0f1',
-                                font: {
-                                    size: 11
-                                },
-                                maxRotation: 45,
-                                minRotation: 45
-                            }
-                        }
-                    }
-                }
-            });
-        }
-    } catch (error) {
-        console.error('加载网络图表失败:', error);
     }
 }
 
