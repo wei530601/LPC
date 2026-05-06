@@ -45,6 +45,14 @@ terminals = {}
 def background_data_recorder():
     """后台任务：每分钟记录一次系统数据"""
     import time
+    # 启动时立即记录一次
+    try:
+        system_info = SystemInfo.get_all()
+        history_data.add_record(system_info)
+        history_data.save_data()
+    except Exception as e:
+        print(f"初始记录历史数据失败: {e}")
+    
     while True:
         try:
             time.sleep(60)  # 每60秒记录一次
@@ -220,6 +228,106 @@ def check_alerts():
         })
     
     return jsonify({'success': True, 'alerts': alerts})
+
+# ============ 系统更新API ============
+
+@app.route('/api/update/check', methods=['GET'])
+@login_required
+def check_update():
+    """检查是否有更新"""
+    try:
+        # 获取远程版本信息
+        result = subprocess.run(
+            ['git', 'fetch', 'origin', 'main'],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        
+        # 比较本地和远程版本
+        result = subprocess.run(
+            ['git', 'rev-list', '--count', 'HEAD..origin/main'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        
+        commits_behind = int(result.stdout.strip()) if result.stdout.strip() else 0
+        
+        # 获取当前版本信息
+        current_result = subprocess.run(
+            ['git', 'log', '-1', '--format=%H %s'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        current_version = current_result.stdout.strip()
+        
+        return jsonify({
+            'success': True,
+            'has_update': commits_behind > 0,
+            'commits_behind': commits_behind,
+            'current_version': current_version
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/update/pull', methods=['POST'])
+@login_required
+def pull_update():
+    """执行更新"""
+    try:
+        # 执行 git pull
+        result = subprocess.run(
+            ['git', 'pull', 'origin', 'main'],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=os.path.dirname(os.path.abspath(__file__))
+        )
+        
+        if result.returncode == 0:
+            return jsonify({
+                'success': True,
+                'message': '更新成功！请重启服务使更改生效。',
+                'output': result.stdout
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.stderr or result.stdout
+            })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/update/restart', methods=['POST'])
+@login_required
+def restart_app():
+    """重启应用"""
+    try:
+        # 使用 systemctl 重启（如果配置了服务）
+        result = subprocess.run(
+            ['sudo', 'systemctl', 'restart', 'pi-panel'],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        
+        if result.returncode == 0:
+            return jsonify({'success': True, 'message': '正在重启服务...'})
+        else:
+            # 如果没有配置 systemd 服务，提示手动重启
+            return jsonify({
+                'success': False,
+                'error': '未配置 systemd 服务，请手动重启应用',
+                'manual': True
+            })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': '请手动重启应用: sudo systemctl restart pi-panel 或 重新运行 python app.py',
+            'manual': True
+        })
 
 # ============ 服务管理API ============
 

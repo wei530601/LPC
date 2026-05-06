@@ -157,3 +157,8 @@ class HistoryData:
             'network_recv': self.get_statistics('network_recv', duration),
             'temperature': self.get_statistics('temperature', duration)
         }
+    
+    def has_data(self):
+        """检查是否有数据"""
+        with self.lock:
+            return any(len(self.data[key]) > 0 for key in self.data)

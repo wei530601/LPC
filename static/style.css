@@ -714,6 +714,41 @@ body {
     justify-content: center;
 }
 
+/* 系统更新 */
+.update-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.update-message {
+    padding: 1rem;
+    background: rgba(76, 175, 80, 0.1);
+    border: 1px solid rgba(76, 175, 80, 0.3);
+    border-radius: 4px;
+    color: #4CAF50;
+    margin-top: 0.5rem;
+}
+
+.update-message.error {
+    background: rgba(244, 67, 54, 0.1);
+    border-color: rgba(244, 67, 54, 0.3);
+    color: #f44336;
+}
+
+.update-message.warning {
+    background: rgba(255, 193, 7, 0.1);
+    border-color: rgba(255, 193, 7, 0.3);
+    color: #FFC107;
+}
+
+.update-buttons {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+}
+
 /* 系统控制页面 */
 .control-buttons {
     display: flex;

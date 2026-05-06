@@ -479,6 +479,31 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- 系统更新 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>系统更新</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="update-info">
+                                <div class="info-item">
+                                    <span class="info-label">当前版本</span>
+                                    <span class="info-value" id="current-version">检查中...</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">更新状态</span>
+                                    <span class="info-value" id="update-status">检查中...</span>
+                                </div>
+                                <div id="update-message" class="update-message" style="display: none;"></div>
+                                <div class="update-buttons">
+                                    <button class="btn btn-primary" onclick="checkForUpdates()">检查更新</button>
+                                    <button class="btn btn-warning" id="update-btn" onclick="performUpdate()" style="display: none;">立即更新</button>
+                                    <button class="btn btn-danger" id="restart-btn" onclick="restartApp()" style="display: none;">重启应用</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>

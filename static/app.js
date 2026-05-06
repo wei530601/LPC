@@ -641,8 +641,136 @@ async function loadSystemInfo() {
         document.getElementById('kernel').textContent = 'Linux';
         document.getElementById('python-version').textContent = 'Python 3.x';
         
+        // 自动检查更新
+        checkForUpdates();
+        
     } catch (error) {
         console.error('加载系统信息失败:', error);
+    }
+}
+
+// ==================== 系统更新功能 ====================
+
+// 检查更新
+async function checkForUpdates() {
+    try {
+        document.getElementById('update-status').textContent = '检查中...';
+        
+        const response = await fetch('/api/update/check');
+        const data = await response.json();
+        
+        if (data.success) {
+            const versionEl = document.getElementById('current-version');
+            const statusEl = document.getElementById('update-status');
+            const updateBtn = document.getElementById('update-btn');
+            
+            // 显示当前版本（只显示前7位commit hash）
+            const shortHash = data.current_version.split(' ')[0].substring(0, 7);
+            versionEl.textContent = shortHash;
+            
+            if (data.has_update) {
+                statusEl.textContent = `有 ${data.commits_behind} 个更新可用`;
+                statusEl.style.color = '#FFC107';
+                updateBtn.style.display = 'inline-block';
+                
+                showUpdateMessage(`发现新版本！落后 ${data.commits_behind} 个提交`, 'warning');
+            } else {
+                statusEl.textContent = '已是最新版本';
+                statusEl.style.color = '#4CAF50';
+                updateBtn.style.display = 'none';
+                
+                showUpdateMessage('您的系统已是最新版本', 'success');
+            }
+        } else {
+            document.getElementById('update-status').textContent = '检查失败';
+            showUpdateMessage('检查更新失败: ' + data.error, 'error');
+        }
+    } catch (error) {
+        document.getElementById('update-status').textContent = '检查失败';
+        showUpdateMessage('检查更新失败: ' + error.message, 'error');
+    }
+}
+
+// 执行更新
+async function performUpdate() {
+    if (!confirm('确定要更新系统吗？更新后需要重启服务。')) return;
+    
+    try {
+        const updateBtn = document.getElementById('update-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        
+        updateBtn.disabled = true;
+        updateBtn.textContent = '更新中...';
+        
+        showUpdateMessage('正在从 GitHub 拉取最新代码...', 'warning');
+        
+        const response = await fetch('/api/update/pull', { method: 'POST' });
+        const data = await response.json();
+        
+        if (data.success) {
+            showUpdateMessage('更新成功！' + data.message, 'success');
+            updateBtn.style.display = 'none';
+            restartBtn.style.display = 'inline-block';
+            
+            // 重新检查版本
+            setTimeout(checkForUpdates, 2000);
+        } else {
+            showUpdateMessage('更新失败: ' + data.error, 'error');
+            updateBtn.disabled = false;
+            updateBtn.textContent = '立即更新';
+        }
+    } catch (error) {
+        showUpdateMessage('更新失败: ' + error.message, 'error');
+        const updateBtn = document.getElementById('update-btn');
+        updateBtn.disabled = false;
+        updateBtn.textContent = '立即更新';
+    }
+}
+
+// 重启应用
+async function restartApp() {
+    if (!confirm('确定要重启应用吗？')) return;
+    
+    try {
+        showUpdateMessage('正在重启应用...', 'warning');
+        
+        const response = await fetch('/api/update/restart', { method: 'POST' });
+        const data = await response.json();
+        
+        if (data.success) {
+            showUpdateMessage('应用正在重启，页面将在5秒后刷新...', 'success');
+            setTimeout(() => {
+                window.location.reload();
+            }, 5000);
+        } else if (data.manual) {
+            showUpdateMessage(data.error, 'warning');
+        } else {
+            showUpdateMessage('重启失败: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showUpdateMessage('重启请求失败，请手动重启应用', 'warning');
+    }
+}
+
+// 显示更新消息
+function showUpdateMessage(message, type = 'success') {
+    const messageEl = document.getElementById('update-message');
+    messageEl.textContent = message;
+    messageEl.className = 'update-message';
+    
+    if (type === 'error') {
+        messageEl.classList.add('error');
+    } else if (type === 'warning') {
+        messageEl.classList.add('warning');
+    }
+    
+    messageEl.style.display = 'block';
+    
+    // 3秒后自动隐藏成功消息
+    if (type === 'success') {
+        setTimeout(() => {
+            messageEl.style.display = 'none';
+        }, 3000);
     }
 }
 
