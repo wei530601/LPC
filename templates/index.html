@@ -6,6 +6,7 @@
     <title>Pi Panel - 树莓派控制面板</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
     <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
     <div class="app">
@@ -555,7 +556,7 @@
                     <h2>网络管理</h2>
                 </div>
 
-                <!-- WiFi管理面板 -->
+                <!-- WiFi管理 -->
                 <div class="card-group">
                     <div class="collapsible-header active" onclick="toggleCollapse(this)">
                         <div class="collapsible-title">
@@ -565,17 +566,14 @@
                     </div>
                     <div class="collapsible-content active">
                         <div class="collapsible-body">
-                            <div class="btn-group">
-                                <button class="btn btn-primary" onclick="scanWiFi()">扫描WiFi</button>
-                                <button class="btn" onclick="getWiFiStatus()">刷新状态</button>
-                            </div>
-                            <div id="wifi-current" class="info-box" style="margin-top: 1rem;"></div>
-                            <div id="wifi-list" class="table-container" style="margin-top: 1rem;"></div>
+                            <button class="btn btn-primary" onclick="scanWifi()">扫描WiFi</button>
+                            <button class="btn btn-danger" onclick="disconnectWifi()">断开连接</button>
+                            <div id="wifi-list" style="margin-top: 1rem;"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 网络接口面板 -->
+                <!-- 网络接口 -->
                 <div class="card-group">
                     <div class="collapsible-header active" onclick="toggleCollapse(this)">
                         <div class="collapsible-title">
@@ -585,63 +583,79 @@
                     </div>
                     <div class="collapsible-content active">
                         <div class="collapsible-body">
-                            <div id="network-interfaces-list"></div>
-                            <div style="margin-top: 1rem;">
-                                <h4>DNS 服务器</h4>
-                                <div id="dns-servers"></div>
-                            </div>
+                            <div id="interface-list"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 防火墙管理面板 -->
+                <!-- 防火墙管理 -->
                 <div class="card-group">
-                    <div class="collapsible-header" onclick="toggleCollapse(this)">
+                    <div class="collapsible-header active" onclick="toggleCollapse(this)">
                         <div class="collapsible-title">
                             <span class="collapsible-icon">▶</span>
-                            <span>防火墙 (UFW)</span>
+                            <span>防火墙管理</span>
                         </div>
                     </div>
-                    <div class="collapsible-content">
+                    <div class="collapsible-content active">
                         <div class="collapsible-body">
-                            <div class="btn-group">
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <div class="info-label">状态</div>
+                                    <div class="info-value" id="firewall-status">-</div>
+                                </div>
+                            </div>
+                            <div style="margin: 1rem 0;">
                                 <button class="btn btn-success" onclick="enableFirewall()">启用</button>
                                 <button class="btn btn-danger" onclick="disableFirewall()">禁用</button>
-                                <button class="btn" onclick="loadFirewallStatus()">刷新</button>
-                                <button class="btn btn-primary" onclick="showAddFirewallRuleDialog()">添加规则</button>
                             </div>
-                            <div id="firewall-status" style="margin-top: 1rem;"></div>
+                            <h4>规则列表</h4>
+                            <div id="firewall-rules"></div>
+                            <h4 style="margin-top: 1rem;">添加规则</h4>
+                            <div class="form-row">
+                                <input type="number" id="fw-port" placeholder="端口">
+                                <select id="fw-protocol">
+                                    <option value="tcp">TCP</option>
+                                    <option value="udp">UDP</option>
+                                </select>
+                                <select id="fw-action">
+                                    <option value="allow">允许</option>
+                                    <option value="deny">拒绝</option>
+                                </select>
+                                <button class="btn btn-primary" onclick="addFirewallRule()">添加</button>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 端口监听状态面板 -->
+                <!-- 监听端口 -->
                 <div class="card-group">
                     <div class="collapsible-header" onclick="toggleCollapse(this)">
                         <div class="collapsible-title">
                             <span class="collapsible-icon">▶</span>
-                            <span>端口监听状态</span>
+                            <span>监听端口</span>
                         </div>
                     </div>
                     <div class="collapsible-content">
                         <div class="collapsible-body">
-                            <button class="btn" onclick="loadListeningPorts()">刷新</button>
-                            <div id="listening-ports" class="table-container" style="margin-top: 1rem;"></div>
+                            <button class="btn btn-primary" onclick="loadListeningPorts()">刷新</button>
+                            <div id="listening-ports" style="margin-top: 1rem;"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 网络连接监控面板 -->
+                <!-- 网络连接 -->
                 <div class="card-group">
                     <div class="collapsible-header" onclick="toggleCollapse(this)">
                         <div class="collapsible-title">
                             <span class="collapsible-icon">▶</span>
-                            <span>网络连接监控</span>
+                            <span>网络连接</span>
                         </div>
                     </div>
                     <div class="collapsible-content">
                         <div class="collapsible-body">
-                            <div id="network-connection-stats"></div>
+                            <button class="btn btn-primary" onclick="loadNetworkConnections()">刷新</button>
+                            <div id="connection-summary" style="margin: 1rem 0;"></div>
+                            <div id="connection-list"></div>
                         </div>
                     </div>
                 </div>
@@ -653,7 +667,7 @@
                     <h2>性能分析</h2>
                 </div>
 
-                <!-- 系统负载面板 -->
+                <!-- 系统负载 -->
                 <div class="card-group">
                     <div class="collapsible-header active" onclick="toggleCollapse(this)">
                         <div class="collapsible-title">
@@ -663,12 +677,29 @@
                     </div>
                     <div class="collapsible-content active">
                         <div class="collapsible-body">
-                            <div id="system-load-info"></div>
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <div class="info-label">1分钟负载</div>
+                                    <div class="info-value" id="load-1min">-</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">5分钟负载</div>
+                                    <div class="info-value" id="load-5min">-</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">15分钟负载</div>
+                                    <div class="info-value" id="load-15min">-</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">CPU核心数</div>
+                                    <div class="info-value" id="cpu-count">-</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 进程排行榜面板 -->
+                <!-- 进程资源占用排行 -->
                 <div class="card-group">
                     <div class="collapsible-header active" onclick="toggleCollapse(this)">
                         <div class="collapsible-title">
@@ -678,42 +709,53 @@
                     </div>
                     <div class="collapsible-content active">
                         <div class="collapsible-body">
-                            <div class="tabs">
-                                <button class="tab-btn active" onclick="switchPerformanceTab('cpu')">CPU占用</button>
-                                <button class="tab-btn" onclick="switchPerformanceTab('memory')">内存占用</button>
+                            <div class="tab-buttons">
+                                <button class="tab-btn active" onclick="loadTopProcesses('cpu')">CPU</button>
+                                <button class="tab-btn" onclick="loadTopProcesses('memory')">内存</button>
+                                <button class="tab-btn" onclick="loadTopProcesses('io')">I/O</button>
                             </div>
-                            <div id="performance-process-list" class="table-container" style="margin-top: 1rem;"></div>
+                            <div id="top-processes"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 磁盘I/O面板 -->
+                <!-- 磁盘I/O -->
                 <div class="card-group">
-                    <div class="collapsible-header" onclick="toggleCollapse(this)">
+                    <div class="collapsible-header active" onclick="toggleCollapse(this)">
                         <div class="collapsible-title">
                             <span class="collapsible-icon">▶</span>
                             <span>磁盘 I/O 监控</span>
                         </div>
                     </div>
-                    <div class="collapsible-content">
+                    <div class="collapsible-content active">
                         <div class="collapsible-body">
+                            <div class="info-grid" style="margin-bottom: 1rem;">
+                                <div class="info-item">
+                                    <div class="info-label">读取速率</div>
+                                    <div class="info-value" id="disk-read-rate">-</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">写入速率</div>
+                                    <div class="info-value" id="disk-write-rate">-</div>
+                                </div>
+                            </div>
                             <div id="disk-io-stats"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 网络连接详情面板 -->
+                <!-- 网络连接统计 -->
                 <div class="card-group">
                     <div class="collapsible-header" onclick="toggleCollapse(this)">
                         <div class="collapsible-title">
                             <span class="collapsible-icon">▶</span>
-                            <span>网络连接详情</span>
+                            <span>网络连接统计</span>
                         </div>
                     </div>
                     <div class="collapsible-content">
                         <div class="collapsible-body">
-                            <button class="btn" onclick="loadNetworkConnections()">刷新</button>
-                            <div id="network-connections-detailed" class="table-container" style="margin-top: 1rem;"></div>
+                            <button class="btn btn-primary" onclick="loadConnectionStats()">刷新</button>
+                            <div id="connection-stats" style="margin-top: 1rem;"></div>
                         </div>
                     </div>
                 </div>
@@ -795,9 +837,9 @@
                     <div class="collapsible-content active">
                         <div class="collapsible-body">
                             <div class="form-group">
-                                <label>主题</label>
-                                <select id="theme-select" onchange="changeTheme()">
-                                    <option value="dark">深色主题</option>
+                                <label>主题模式</label>
+                                <select id="theme-mode" onchange="changeTheme()">
+                                    <option value="dark" selected>深色主题</option>
                                     <option value="light">浅色主题</option>
                                 </select>
                             </div>
@@ -908,6 +950,5 @@
     <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
     <script src="/static/app.js"></script>
-    <script src="/static/network_performance.js"></script>
 </body>
 </html>

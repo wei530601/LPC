@@ -21,7 +21,7 @@ from docker_manager import DockerManager
 from apt_manager import AptManager
 from user_manager import UserManager
 from network_manager import NetworkManager
-from performance_analyzer import PerformanceAnalyzer
+from performance import PerformanceAnalyzer
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -32,8 +32,6 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'
 
 file_manager = FileManager(Config.FILE_ROOT)
-network_manager = NetworkManager()
-performance_analyzer = PerformanceAnalyzer()
 
 # 告警阈值配置
 ALERT_THRESHOLDS = {
@@ -146,7 +144,7 @@ def get_processes():
 def kill_process(pid):
     return jsonify(SystemControl.kill_process(pid))
 
-# ============ 告警检查API ============
+# ============ 历史数据API ============
 
 @app.route('/api/alerts/check')
 @login_required
@@ -208,199 +206,6 @@ def check_alerts():
             })
     
     return jsonify({'success': True, 'alerts': alerts})
-
-# ============ 网络管理API ============
-
-@app.route('/api/network/wifi/scan')
-@login_required
-def wifi_scan():
-    """扫描WiFi网络"""
-    networks = network_manager.scan_wifi()
-    return jsonify({'success': True, 'networks': networks})
-
-@app.route('/api/network/wifi/current')
-@login_required
-def wifi_current():
-    """获取当前WiFi连接"""
-    current = network_manager.get_current_wifi()
-    return jsonify({'success': True, 'wifi': current})
-
-@app.route('/api/network/wifi/connect', methods=['POST'])
-@login_required
-def wifi_connect():
-    """连接WiFi"""
-    data = request.get_json()
-    ssid = data.get('ssid')
-    password = data.get('password')
-    
-    success, message = network_manager.connect_wifi(ssid, password)
-    return jsonify({'success': success, 'message': message})
-
-@app.route('/api/network/wifi/disconnect', methods=['POST'])
-@login_required
-def wifi_disconnect():
-    """断开WiFi"""
-    success, message = network_manager.disconnect_wifi()
-    return jsonify({'success': success, 'message': message})
-
-@app.route('/api/network/interfaces')
-@login_required
-def network_interfaces():
-    """获取网络接口"""
-    interfaces = network_manager.get_network_interfaces()
-    return jsonify({'success': True, 'interfaces': interfaces})
-
-@app.route('/api/network/dns')
-@login_required
-def network_dns():
-    """获取DNS服务器"""
-    dns_servers = network_manager.get_dns_servers()
-    return jsonify({'success': True, 'dns_servers': dns_servers})
-
-@app.route('/api/network/firewall/status')
-@login_required
-def firewall_status():
-    """获取防火墙状态"""
-    if not network_manager.is_ufw_installed():
-        return jsonify({'success': False, 'message': 'UFW未安装'})
-    
-    status = network_manager.get_ufw_status()
-    return jsonify({'success': True, 'status': status})
-
-@app.route('/api/network/firewall/enable', methods=['POST'])
-@login_required
-def firewall_enable():
-    """启用防火墙"""
-    success = network_manager.ufw_enable()
-    return jsonify({'success': success})
-
-@app.route('/api/network/firewall/disable', methods=['POST'])
-@login_required
-def firewall_disable():
-    """禁用防火墙"""
-    success = network_manager.ufw_disable()
-    return jsonify({'success': success})
-
-@app.route('/api/network/firewall/rule/add', methods=['POST'])
-@login_required
-def firewall_add_rule():
-    """添加防火墙规则"""
-    data = request.get_json()
-    port = data.get('port')
-    protocol = data.get('protocol', 'tcp')
-    action = data.get('action', 'allow')
-    
-    success, message = network_manager.ufw_add_rule(port, protocol, action)
-    return jsonify({'success': success, 'message': message})
-
-@app.route('/api/network/firewall/rule/delete', methods=['POST'])
-@login_required
-def firewall_delete_rule():
-    """删除防火墙规则"""
-    data = request.get_json()
-    port = data.get('port')
-    protocol = data.get('protocol', 'tcp')
-    
-    success, message = network_manager.ufw_delete_rule(port, protocol)
-    return jsonify({'success': success, 'message': message})
-
-@app.route('/api/network/ports')
-@login_required
-def network_ports():
-    """获取监听端口"""
-    ports = network_manager.get_listening_ports()
-    return jsonify({'success': True, 'ports': ports})
-
-@app.route('/api/network/connections')
-@login_required
-def network_connections():
-    """获取网络连接统计"""
-    stats = network_manager.get_network_connections()
-    return jsonify({'success': True, 'stats': stats})
-
-@app.route('/api/network/stats')
-@login_required
-def network_stats():
-    """获取网络流量统计"""
-    stats = network_manager.get_network_stats()
-    return jsonify({'success': True, 'stats': stats})
-
-# ============ 性能分析API ============
-
-@app.route('/api/performance/processes/cpu')
-@login_required
-def performance_cpu_processes():
-    """获取CPU占用最高的进程"""
-    limit = request.args.get('limit', 10, type=int)
-    processes = performance_analyzer.get_top_processes_by_cpu(limit)
-    return jsonify({'success': True, 'processes': processes})
-
-@app.route('/api/performance/processes/memory')
-@login_required
-def performance_memory_processes():
-    """获取内存占用最高的进程"""
-    limit = request.args.get('limit', 10, type=int)
-    processes = performance_analyzer.get_top_processes_by_memory(limit)
-    return jsonify({'success': True, 'processes': processes})
-
-@app.route('/api/performance/process/<int:pid>')
-@login_required
-def performance_process_details(pid):
-    """获取进程详细信息"""
-    details = performance_analyzer.get_process_details(pid)
-    if details:
-        return jsonify({'success': True, 'process': details})
-    else:
-        return jsonify({'success': False, 'message': '进程不存在'}), 404
-
-@app.route('/api/performance/disk/io')
-@login_required
-def performance_disk_io():
-    """获取磁盘I/O统计"""
-    stats = performance_analyzer.get_disk_io_stats()
-    return jsonify({'success': True, 'stats': stats})
-
-@app.route('/api/performance/network/connections')
-@login_required
-def performance_network_connections():
-    """获取详细网络连接"""
-    connections = performance_analyzer.get_network_connections_detailed()
-    return jsonify({'success': True, 'connections': connections})
-
-@app.route('/api/performance/network/io')
-@login_required
-def performance_network_io():
-    """获取网络I/O统计"""
-    stats = performance_analyzer.get_network_io_stats()
-    return jsonify({'success': True, 'stats': stats})
-
-@app.route('/api/performance/load')
-@login_required
-def performance_load():
-    """获取系统负载"""
-    load = performance_analyzer.get_system_load()
-    return jsonify({'success': True, 'load': load})
-
-@app.route('/api/performance/cpu/stats')
-@login_required
-def performance_cpu_stats():
-    """获取CPU详细统计"""
-    stats = performance_analyzer.get_cpu_stats()
-    return jsonify({'success': True, 'stats': stats})
-
-@app.route('/api/performance/memory/details')
-@login_required
-def performance_memory_details():
-    """获取内存详细信息"""
-    details = performance_analyzer.get_memory_details()
-    return jsonify({'success': True, 'details': details})
-
-@app.route('/api/performance/summary')
-@login_required
-def performance_summary():
-    """获取性能综合摘要"""
-    summary = performance_analyzer.get_performance_summary()
-    return jsonify({'success': True, 'summary': summary})
 
 # ============ 系统更新API ============
 
@@ -596,6 +401,154 @@ def get_service_status(service_name):
 @login_required
 def control_service(service_name, action):
     return jsonify(ServiceManager.control_service(service_name, action))
+
+# ============ 网络管理API ============
+
+@app.route('/api/network/wifi/scan')
+@login_required
+def scan_wifi():
+    """扫描WiFi网络"""
+    return jsonify(NetworkManager.scan_wifi())
+
+@app.route('/api/network/wifi/connect', methods=['POST'])
+@login_required
+def connect_wifi():
+    """连接WiFi"""
+    data = request.json
+    ssid = data.get('ssid')
+    password = data.get('password')
+    return jsonify(NetworkManager.connect_wifi(ssid, password))
+
+@app.route('/api/network/wifi/disconnect', methods=['POST'])
+@login_required
+def disconnect_wifi():
+    """断开WiFi"""
+    return jsonify(NetworkManager.disconnect_wifi())
+
+@app.route('/api/network/interfaces')
+@login_required
+def get_network_interfaces():
+    """获取网络接口"""
+    return jsonify(NetworkManager.get_network_interfaces())
+
+@app.route('/api/network/interfaces/static', methods=['POST'])
+@login_required
+def set_static_ip():
+    """设置静态IP"""
+    data = request.json
+    return jsonify(NetworkManager.set_static_ip(
+        data.get('interface'),
+        data.get('ip'),
+        data.get('netmask'),
+        data.get('gateway'),
+        data.get('dns')
+    ))
+
+@app.route('/api/network/interfaces/dhcp', methods=['POST'])
+@login_required
+def set_dhcp():
+    """设置DHCP"""
+    data = request.json
+    return jsonify(NetworkManager.set_dhcp(data.get('interface')))
+
+@app.route('/api/network/firewall/status')
+@login_required
+def get_firewall_status():
+    """获取防火墙状态"""
+    return jsonify(NetworkManager.get_firewall_status())
+
+@app.route('/api/network/firewall/enable', methods=['POST'])
+@login_required
+def enable_firewall():
+    """启用防火墙"""
+    return jsonify(NetworkManager.enable_firewall())
+
+@app.route('/api/network/firewall/disable', methods=['POST'])
+@login_required
+def disable_firewall():
+    """禁用防火墙"""
+    return jsonify(NetworkManager.disable_firewall())
+
+@app.route('/api/network/firewall/rules', methods=['POST'])
+@login_required
+def add_firewall_rule():
+    """添加防火墙规则"""
+    data = request.json
+    return jsonify(NetworkManager.add_firewall_rule(
+        data.get('port'),
+        data.get('protocol', 'tcp'),
+        data.get('action', 'allow')
+    ))
+
+@app.route('/api/network/firewall/rules/<int:rule_number>', methods=['DELETE'])
+@login_required
+def delete_firewall_rule(rule_number):
+    """删除防火墙规则"""
+    return jsonify(NetworkManager.delete_firewall_rule(rule_number))
+
+@app.route('/api/network/ports')
+@login_required
+def get_listening_ports():
+    """获取监听端口"""
+    return jsonify(NetworkManager.get_listening_ports())
+
+@app.route('/api/network/connections')
+@login_required
+def get_network_connections():
+    """获取网络连接"""
+    return jsonify(NetworkManager.get_network_connections())
+
+# ============ 性能分析API ============
+
+@app.route('/api/performance/processes')
+@login_required
+def get_top_processes():
+    """获取资源占用排行"""
+    limit = request.args.get('limit', 10, type=int)
+    sort_by = request.args.get('sort', 'cpu')
+    return jsonify(PerformanceAnalyzer.get_top_processes(limit, sort_by))
+
+@app.route('/api/performance/disk-io')
+@login_required
+def get_disk_io():
+    """获取磁盘I/O统计"""
+    return jsonify(PerformanceAnalyzer.get_disk_io())
+
+@app.route('/api/performance/disk-io/rate')
+@login_required
+def get_disk_io_rate():
+    """获取磁盘I/O速率"""
+    return jsonify(PerformanceAnalyzer.get_disk_io_rate())
+
+@app.route('/api/performance/load')
+@login_required
+def get_system_load():
+    """获取系统负载"""
+    return jsonify(PerformanceAnalyzer.get_system_load())
+
+@app.route('/api/performance/connections')
+@login_required
+def get_connection_stats():
+    """获取网络连接统计"""
+    return jsonify(PerformanceAnalyzer.get_network_connections_stats())
+
+@app.route('/api/performance/cpu-cores')
+@login_required
+def get_cpu_cores():
+    """获取每个CPU核心使用率"""
+    return jsonify(PerformanceAnalyzer.get_cpu_per_core())
+
+@app.route('/api/performance/memory')
+@login_required
+def get_memory_details():
+    """获取详细内存信息"""
+    return jsonify(PerformanceAnalyzer.get_memory_details())
+
+@app.route('/api/performance/network-io')
+@login_required
+def get_network_io():
+    """获取网络I/O统计"""
+    return jsonify(PerformanceAnalyzer.get_network_io())
 
 # ============ Docker 管理API ============
 

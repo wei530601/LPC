@@ -29,6 +29,29 @@ function collapseAll() {
     });
 }
 
+// ==================== 主题切换功能 ====================
+
+function changeTheme() {
+    const theme = document.getElementById('theme-mode').value;
+    document.body.className = theme === 'light' ? 'light-theme' : '';
+    localStorage.setItem('theme', theme);
+}
+
+// 加载主题
+function loadTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    const themeSelect = document.getElementById('theme-mode');
+    if (themeSelect) {
+        themeSelect.value = savedTheme;
+        document.body.className = savedTheme === 'light' ? 'light-theme' : '';
+    }
+}
+
+// 页面加载时应用主题
+document.addEventListener('DOMContentLoaded', function() {
+    loadTheme();
+});
+
 // ==================== 页面切换 ====================
 
 // 页面切换
@@ -686,19 +709,10 @@ function saveSettings() {
 function applySettings() {
     const refreshInterval = localStorage.getItem('refreshInterval') || '2';
     const terminalFontSize = localStorage.getItem('terminalFontSize') || '14';
-    const theme = localStorage.getItem('theme') || 'dark';
     
     // 更新界面
     document.getElementById('refresh-interval').value = refreshInterval;
     document.getElementById('terminal-font-size').value = terminalFontSize;
-    document.getElementById('theme-select').value = theme;
-    
-    // 应用主题
-    if (theme === 'light') {
-        document.body.classList.add('light-theme');
-    } else {
-        document.body.classList.remove('light-theme');
-    }
     
     // 应用仪表板刷新间隔
     if (dashboardInterval) {
@@ -712,20 +726,6 @@ function applySettings() {
         if (fitAddon) {
             fitAddon.fit();
         }
-    }
-}
-
-// 切换主题
-function changeTheme() {
-    const theme = document.getElementById('theme-select').value;
-    localStorage.setItem('theme', theme);
-    
-    if (theme === 'light') {
-        document.body.classList.add('light-theme');
-        showMessage('已切换到浅色主题', 'success');
-    } else {
-        document.body.classList.remove('light-theme');
-        showMessage('已切换到深色主题', 'success');
     }
 }
 
@@ -1046,6 +1046,486 @@ async function loadSystemLogs() {
         }
     } catch (error) {
         document.getElementById('system-logs').textContent = '加载日志失败: ' + error.message;
+    }
+}
+
+// ==================== 网络管理功能 ====================
+
+async function loadNetworkPage() {
+    await loadNetworkInterfaces();
+    await loadFirewallStatus();
+}
+
+// WiFi管理
+async function scanWifi() {
+    try {
+        const response = await fetch('/api/network/wifi/scan');
+        const data = await response.json();
+        
+        if (data.success) {
+            const wifiList = document.getElementById('wifi-list');
+            wifiList.innerHTML = '';
+            
+            if (data.networks && data.networks.length > 0) {
+                const table = document.createElement('table');
+                table.className = 'modern-table';
+                table.innerHTML = `
+                    <thead>
+                        <tr>
+                            <th>SSID</th>
+                            <th>信号强度</th>
+                            <th>安全性</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.networks.map(net => `
+                            <tr>
+                                <td>${net.ssid}</td>
+                                <td>${net.signal}%</td>
+                                <td>${net.security}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-primary" onclick="connectWifiDialog('${net.ssid}', '${net.security}')">连接</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                `;
+                wifiList.appendChild(table);
+            } else {
+                wifiList.innerHTML = '<p>未找到WiFi网络</p>';
+            }
+        } else {
+            showMessage('扫描失败: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showMessage('扫描WiFi失败', 'error');
+    }
+}
+
+function connectWifiDialog(ssid, security) {
+    if (security === 'Open') {
+        if (confirm(`连接到 ${ssid}?`)) {
+            connectWifiNetwork(ssid, null);
+        }
+    } else {
+        const password = prompt(`输入 ${ssid} 的密码:`);
+        if (password) {
+            connectWifiNetwork(ssid, password);
+        }
+    }
+}
+
+async function connectWifiNetwork(ssid, password) {
+    try {
+        const response = await fetch('/api/network/wifi/connect', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ssid, password})
+        });
+        const data = await response.json();
+        showMessage(data.message || data.error, data.success ? 'success' : 'error');
+    } catch (error) {
+        showMessage('连接失败', 'error');
+    }
+}
+
+async function disconnectWifi() {
+    if (!confirm('确定断开WiFi连接？')) return;
+    
+    try {
+        const response = await fetch('/api/network/wifi/disconnect', {method: 'POST'});
+        const data = await response.json();
+        showMessage(data.message || data.error, data.success ? 'success' : 'error');
+    } catch (error) {
+        showMessage('断开失败', 'error');
+    }
+}
+
+// 网络接口
+async function loadNetworkInterfaces() {
+    try {
+        const response = await fetch('/api/network/interfaces');
+        const data = await response.json();
+        
+        if (data.success) {
+            const interfaceList = document.getElementById('interface-list');
+            interfaceList.innerHTML = '';
+            
+            data.interfaces.forEach(iface => {
+                const div = document.createElement('div');
+                div.className = 'info-grid';
+                div.style.marginBottom = '1rem';
+                div.style.padding = '1rem';
+                div.style.background = 'rgba(255,255,255,0.05)';
+                div.style.borderRadius = '3px';
+                
+                let addressHtml = '';
+                if (iface.addresses && iface.addresses.length > 0) {
+                    addressHtml = iface.addresses.map(addr => 
+                        `${addr.address}/${addr.prefix}`
+                    ).join('<br>');
+                } else {
+                    addressHtml = '未配置';
+                }
+                
+                div.innerHTML = `
+                    <div class="info-item">
+                        <div class="info-label">接口</div>
+                        <div class="info-value">${iface.name}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">状态</div>
+                        <div class="info-value">${iface.state}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">地址</div>
+                        <div class="info-value">${addressHtml}</div>
+                    </div>
+                `;
+                interfaceList.appendChild(div);
+            });
+        }
+    } catch (error) {
+        console.error('加载网络接口失败:', error);
+    }
+}
+
+// 防火墙管理
+async function loadFirewallStatus() {
+    try {
+        const response = await fetch('/api/network/firewall/status');
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('firewall-status').textContent = data.status;
+            
+            const rulesDiv = document.getElementById('firewall-rules');
+            if (data.rules && data.rules.length > 0) {
+                rulesDiv.innerHTML = '<ul style="list-style: none; padding: 0;">' +
+                    data.rules.map((rule, idx) => `
+                        <li style="padding: 0.5rem; background: rgba(255,255,255,0.05); margin: 0.5rem 0; border-radius: 3px;">
+                            ${rule}
+                            <button class="btn btn-sm btn-danger" style="float: right;" onclick="deleteFirewallRule(${idx + 1})">删除</button>
+                        </li>
+                    `).join('') +
+                    '</ul>';
+            } else {
+                rulesDiv.innerHTML = '<p>暂无规则</p>';
+            }
+        } else {
+            showMessage(data.error, 'error');
+        }
+    } catch (error) {
+        console.error('加载防火墙状态失败:', error);
+    }
+}
+
+async function enableFirewall() {
+    try {
+        const response = await fetch('/api/network/firewall/enable', {method: 'POST'});
+        const data = await response.json();
+        showMessage(data.message || data.error, data.success ? 'success' : 'error');
+        if (data.success) loadFirewallStatus();
+    } catch (error) {
+        showMessage('操作失败', 'error');
+    }
+}
+
+async function disableFirewall() {
+    try {
+        const response = await fetch('/api/network/firewall/disable', {method: 'POST'});
+        const data = await response.json();
+        showMessage(data.message || data.error, data.success ? 'success' : 'error');
+        if (data.success) loadFirewallStatus();
+    } catch (error) {
+        showMessage('操作失败', 'error');
+    }
+}
+
+async function addFirewallRule() {
+    const port = document.getElementById('fw-port').value;
+    const protocol = document.getElementById('fw-protocol').value;
+    const action = document.getElementById('fw-action').value;
+    
+    if (!port) {
+        showMessage('请输入端口', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/network/firewall/rules', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({port, protocol, action})
+        });
+        const data = await response.json();
+        showMessage(data.message || data.error, data.success ? 'success' : 'error');
+        if (data.success) {
+            document.getElementById('fw-port').value = '';
+            loadFirewallStatus();
+        }
+    } catch (error) {
+        showMessage('添加失败', 'error');
+    }
+}
+
+async function deleteFirewallRule(ruleNumber) {
+    if (!confirm(`确定删除规则 ${ruleNumber}？`)) return;
+    
+    try {
+        const response = await fetch(`/api/network/firewall/rules/${ruleNumber}`, {method: 'DELETE'});
+        const data = await response.json();
+        showMessage(data.message || data.error, data.success ? 'success' : 'error');
+        if (data.success) loadFirewallStatus();
+    } catch (error) {
+        showMessage('删除失败', 'error');
+    }
+}
+
+// 监听端口
+async function loadListeningPorts() {
+    try {
+        const response = await fetch('/api/network/ports');
+        const data = await response.json();
+        
+        if (data.success) {
+            const portsDiv = document.getElementById('listening-ports');
+            if (data.ports && data.ports.length > 0) {
+                const table = document.createElement('table');
+                table.className = 'modern-table';
+                table.innerHTML = `
+                    <thead>
+                        <tr>
+                            <th>协议</th>
+                            <th>地址</th>
+                            <th>端口</th>
+                            <th>进程</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.ports.map(p => `
+                            <tr>
+                                <td>${p.protocol}</td>
+                                <td>${p.address}</td>
+                                <td>${p.port}</td>
+                                <td>${p.process}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                `;
+                portsDiv.innerHTML = '';
+                portsDiv.appendChild(table);
+            } else {
+                portsDiv.innerHTML = '<p>无监听端口</p>';
+            }
+        }
+    } catch (error) {
+        console.error('加载监听端口失败:', error);
+    }
+}
+
+// 网络连接
+async function loadNetworkConnections() {
+    try {
+        const response = await fetch('/api/network/connections');
+        const data = await response.json();
+        
+        if (data.success) {
+            const summaryDiv = document.getElementById('connection-summary');
+            summaryDiv.innerHTML = `
+                <div class="info-grid">
+                    <div class="info-item"><div class="info-label">ESTABLISHED</div><div class="info-value">${data.summary.ESTABLISHED || 0}</div></div>
+                    <div class="info-item"><div class="info-label">LISTEN</div><div class="info-value">${data.summary.LISTEN || 0}</div></div>
+                    <div class="info-item"><div class="info-label">TIME_WAIT</div><div class="info-value">${data.summary.TIME_WAIT || 0}</div></div>
+                    <div class="info-item"><div class="info-label">其他</div><div class="info-value">${data.summary.OTHER || 0}</div></div>
+                </div>
+            `;
+            
+            const listDiv = document.getElementById('connection-list');
+            if (data.connections && data.connections.length > 0) {
+                const table = document.createElement('table');
+                table.className = 'modern-table';
+                table.innerHTML = `
+                    <thead>
+                        <tr>
+                            <th>协议</th>
+                            <th>状态</th>
+                            <th>本地地址</th>
+                            <th>远程地址</th>
+                            <th>进程</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.connections.map(c => `
+                            <tr>
+                                <td>${c.protocol}</td>
+                                <td>${c.state}</td>
+                                <td>${c.local}</td>
+                                <td>${c.remote}</td>
+                                <td>${c.process}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                `;
+                listDiv.innerHTML = '';
+                listDiv.appendChild(table);
+            }
+        }
+    } catch (error) {
+        console.error('加载网络连接失败:', error);
+    }
+}
+
+// ==================== 性能分析功能 ====================
+
+async function loadPerformancePage() {
+    await loadSystemLoad();
+    await loadTopProcesses('cpu');
+    await loadDiskIO();
+}
+
+// 系统负载
+async function loadSystemLoad() {
+    try {
+        const response = await fetch('/api/performance/load');
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('load-1min').textContent = `${data.load_1min} (${data.load_1min_percent}%)`;
+            document.getElementById('load-5min').textContent = `${data.load_5min} (${data.load_5min_percent}%)`;
+            document.getElementById('load-15min').textContent = `${data.load_15min} (${data.load_15min_percent}%)`;
+            document.getElementById('cpu-count').textContent = data.cpu_count;
+        }
+    } catch (error) {
+        console.error('加载系统负载失败:', error);
+    }
+}
+
+// 进程排行
+async function loadTopProcesses(sortBy) {
+    // 更新按钮状态
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+    
+    try {
+        const response = await fetch(`/api/performance/processes?sort=${sortBy}&limit=15`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const processDiv = document.getElementById('top-processes');
+            const table = document.createElement('table');
+            table.className = 'modern-table';
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>PID</th>
+                        <th>用户</th>
+                        <th>进程名</th>
+                        <th>CPU%</th>
+                        <th>内存%</th>
+                        <th>内存(MB)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${data.processes.map(p => `
+                        <tr>
+                            <td>${p.pid}</td>
+                            <td>${p.username}</td>
+                            <td>${p.name}</td>
+                            <td>${p.cpu_percent.toFixed(1)}</td>
+                            <td>${p.memory_percent.toFixed(1)}</td>
+                            <td>${p.memory_mb.toFixed(1)}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            `;
+            processDiv.innerHTML = '';
+            processDiv.appendChild(table);
+        }
+    } catch (error) {
+        console.error('加载进程列表失败:', error);
+    }
+}
+
+// 磁盘I/O
+async function loadDiskIO() {
+    try {
+        // 加载实时速率
+        const rateResponse = await fetch('/api/performance/disk-io/rate');
+        const rateData = await rateResponse.json();
+        
+        if (rateData.success) {
+            document.getElementById('disk-read-rate').textContent = `${rateData.read_rate_mb} MB/s`;
+            document.getElementById('disk-write-rate').textContent = `${rateData.write_rate_mb} MB/s`;
+        }
+        
+        // 加载统计信息
+        const statsResponse = await fetch('/api/performance/disk-io');
+        const statsData = await statsResponse.json();
+        
+        if (statsData.success) {
+            const statsDiv = document.getElementById('disk-io-stats');
+            const table = document.createElement('table');
+            table.className = 'modern-table';
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>磁盘</th>
+                        <th>读取次数</th>
+                        <th>写入次数</th>
+                        <th>读取(MB)</th>
+                        <th>写入(MB)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${statsData.io_stats.map(io => `
+                        <tr>
+                            <td>${io.disk}</td>
+                            <td>${io.read_count}</td>
+                            <td>${io.write_count}</td>
+                            <td>${io.read_mb.toFixed(2)}</td>
+                            <td>${io.write_mb.toFixed(2)}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            `;
+            statsDiv.innerHTML = '';
+            statsDiv.appendChild(table);
+        }
+    } catch (error) {
+        console.error('加载磁盘I/O失败:', error);
+    }
+}
+
+// 网络连接统计
+async function loadConnectionStats() {
+    try {
+        const response = await fetch('/api/performance/connections');
+        const data = await response.json();
+        
+        if (data.success) {
+            const statsDiv = document.getElementById('connection-stats');
+            const summary = data.summary;
+            
+            let html = '<div class="info-grid">';
+            for (const [state, count] of Object.entries(summary)) {
+                html += `
+                    <div class="info-item">
+                        <div class="info-label">${state}</div>
+                        <div class="info-value">${count}</div>
+                    </div>
+                `;
+            }
+            html += '</div>';
+            html += `<p style="margin-top: 1rem;">总连接数: ${data.total}</p>`;
+            
+            statsDiv.innerHTML = html;
+        }
+    } catch (error) {
+        console.error('加载连接统计失败:', error);
     }
 }
 
