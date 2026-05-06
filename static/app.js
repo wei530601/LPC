@@ -1129,20 +1129,32 @@ async function loadChart(metric, label, color) {
                     },
                     scales: {
                         y: {
+                            display: true,
                             beginAtZero: true,
                             grid: {
+                                display: true,
                                 color: 'rgba(255, 255, 255, 0.1)'
                             },
                             ticks: {
-                                color: 'rgba(255, 255, 255, 0.7)'
+                                display: true,
+                                color: '#ecf0f1',
+                                font: {
+                                    size: 12
+                                }
                             }
                         },
                         x: {
+                            display: true,
                             grid: {
+                                display: true,
                                 color: 'rgba(255, 255, 255, 0.1)'
                             },
                             ticks: {
-                                color: 'rgba(255, 255, 255, 0.7)',
+                                display: true,
+                                color: '#ecf0f1',
+                                font: {
+                                    size: 11
+                                },
                                 maxRotation: 45,
                                 minRotation: 45
                             }
@@ -1208,26 +1220,41 @@ async function loadNetworkChart() {
                         legend: {
                             display: true,
                             labels: {
-                                color: 'rgba(255, 255, 255, 0.7)'
+                                color: '#ecf0f1',
+                                font: {
+                                    size: 12
+                                }
                             }
                         }
                     },
                     scales: {
                         y: {
+                            display: true,
                             beginAtZero: true,
                             grid: {
+                                display: true,
                                 color: 'rgba(255, 255, 255, 0.1)'
                             },
                             ticks: {
-                                color: 'rgba(255, 255, 255, 0.7)'
+                                display: true,
+                                color: '#ecf0f1',
+                                font: {
+                                    size: 12
+                                }
                             }
                         },
                         x: {
+                            display: true,
                             grid: {
+                                display: true,
                                 color: 'rgba(255, 255, 255, 0.1)'
                             },
                             ticks: {
-                                color: 'rgba(255, 255, 255, 0.7)',
+                                display: true,
+                                color: '#ecf0f1',
+                                font: {
+                                    size: 11
+                                },
                                 maxRotation: 45,
                                 minRotation: 45
                             }

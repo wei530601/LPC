@@ -226,14 +226,24 @@ def check_alerts():
                 'message': f'磁盘 {disk.get("mount")} 使用率过高: {disk.get("percent")}%'
             })
     
-    # 检查温度
-    temperature = system_info.get('temperature', 0)
-    if temperature > ALERT_THRESHOLDS['temperature']:
-        alerts.append({
-            'type': 'temperature',
-            'level': 'warning',
-            'message': f'温度过高: {temperature}°C'
-        })
+    # 检查温度 - 温度是字典，需要遍历所有传感器
+    temperature_data = system_info.get('temperature', {})
+    if isinstance(temperature_data, dict):
+        for sensor_name, temp_value in temperature_data.items():
+            if temp_value > ALERT_THRESHOLDS['temperature']:
+                alerts.append({
+                    'type': 'temperature',
+                    'level': 'warning',
+                    'message': f'{sensor_name} 温度过高: {temp_value:.1f}°C'
+                })
+    elif isinstance(temperature_data, (int, float)):
+        # 兼容单个温度值的情况
+        if temperature_data > ALERT_THRESHOLDS['temperature']:
+            alerts.append({
+                'type': 'temperature',
+                'level': 'warning',
+                'message': f'温度过高: {temperature_data:.1f}°C'
+            })
     
     return jsonify({'success': True, 'alerts': alerts})
 
