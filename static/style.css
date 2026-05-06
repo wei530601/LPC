@@ -1642,7 +1642,31 @@ body.light-theme .collapsible-body {
 }
 
 body.light-theme .stat-card {
-    color: #fff;
+    color: #333;
+}
+
+body.light-theme .stat-card h4 {
+    color: #333;
+}
+
+body.light-theme .stat-label {
+    color: #333;
+}
+
+body.light-theme .stat-number {
+    color: #333;
+}
+
+body.light-theme .stat-value {
+    color: #4CAF50;
+}
+
+body.light-theme .stat-values .stat-item .label {
+    color: #666;
+}
+
+body.light-theme .stat-values .stat-item .value {
+    color: #4CAF50;
 }
 
 body.light-theme .info-label {
@@ -1750,6 +1774,22 @@ body.light-theme #terminal-container {
     background: #f8f9fa;
     color: #333;
     border: 1px solid #ddd;
+}
+
+body.light-theme .loading {
+    color: #666 !important;
+}
+
+body.light-theme .process-table .loading {
+    color: #666;
+}
+
+body.light-theme .table {
+    color: #333;
+}
+
+body.light-theme .table td {
+    color: #333;
 }
 
 body.light-theme .tab-btn {
