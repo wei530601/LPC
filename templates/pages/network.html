@@ -1,0 +1,110 @@
+            <!-- 网络管理页面 -->
+            <div class="page" id="network">
+                <div class="page-header">
+                    <h2>网络管理</h2>
+                </div>
+
+                <!-- WiFi管理 -->
+                <div class="card-group">
+                    <div class="collapsible-header active" onclick="toggleCollapse(this)">
+                        <div class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            <span>WiFi 管理</span>
+                        </div>
+                    </div>
+                    <div class="collapsible-content active">
+                        <div class="collapsible-body">
+                            <button class="btn btn-primary" onclick="scanWifi()">扫描WiFi</button>
+                            <button class="btn btn-danger" onclick="disconnectWifi()">断开连接</button>
+                            <div id="wifi-list" style="margin-top: 1rem;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 网络接口 -->
+                <div class="card-group">
+                    <div class="collapsible-header active" onclick="toggleCollapse(this)">
+                        <div class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            <span>网络接口</span>
+                        </div>
+                    </div>
+                    <div class="collapsible-content active">
+                        <div class="collapsible-body">
+                            <div id="interface-list"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 防火墙管理 -->
+                <div class="card-group">
+                    <div class="collapsible-header active" onclick="toggleCollapse(this)">
+                        <div class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            <span>防火墙管理</span>
+                        </div>
+                    </div>
+                    <div class="collapsible-content active">
+                        <div class="collapsible-body">
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <div class="info-label">状态</div>
+                                    <div class="info-value" id="firewall-status">-</div>
+                                </div>
+                            </div>
+                            <div style="margin: 1rem 0;">
+                                <button class="btn btn-success" onclick="enableFirewall()">启用</button>
+                                <button class="btn btn-danger" onclick="disableFirewall()">禁用</button>
+                            </div>
+                            <h4>规则列表</h4>
+                            <div id="firewall-rules"></div>
+                            <h4 style="margin-top: 1rem;">添加规则</h4>
+                            <div class="form-row">
+                                <input type="number" id="fw-port" placeholder="端口">
+                                <select id="fw-protocol">
+                                    <option value="tcp">TCP</option>
+                                    <option value="udp">UDP</option>
+                                </select>
+                                <select id="fw-action">
+                                    <option value="allow">允许</option>
+                                    <option value="deny">拒绝</option>
+                                </select>
+                                <button class="btn btn-primary" onclick="addFirewallRule()">添加</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 监听端口 -->
+                <div class="card-group">
+                    <div class="collapsible-header" onclick="toggleCollapse(this)">
+                        <div class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            <span>监听端口</span>
+                        </div>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="collapsible-body">
+                            <button class="btn btn-primary" onclick="loadListeningPorts()">刷新</button>
+                            <div id="listening-ports" style="margin-top: 1rem;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 网络连接 -->
+                <div class="card-group">
+                    <div class="collapsible-header" onclick="toggleCollapse(this)">
+                        <div class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            <span>网络连接</span>
+                        </div>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="collapsible-body">
+                            <button class="btn btn-primary" onclick="loadNetworkConnections()">刷新</button>
+                            <div id="connection-summary" style="margin: 1rem 0;"></div>
+                            <div id="connection-list"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>

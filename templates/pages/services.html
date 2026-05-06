@@ -1,0 +1,28 @@
+            <!-- 服务管理页面 -->
+            <div class="page" id="services">
+                <div class="page-header">
+                    <h2>服务管理</h2>
+                    <button class="btn btn-primary" onclick="loadServices()">刷新</button>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <div class="search-box">
+                            <input type="text" id="service-search" placeholder="搜索服务...">
+                        </div>
+                        <div class="table-container">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>服务名称</th>
+                                        <th>状态</th>
+                                        <th>加载</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="services-list"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>

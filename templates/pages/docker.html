@@ -1,0 +1,101 @@
+            <!-- Docker 管理页面 -->
+            <div class="page" id="docker">
+                <div class="page-header">
+                    <h2>Docker 容器管理</h2>
+                    <div class="docker-header-buttons">
+                        <button class="btn btn-primary" onclick="loadDockerData()">刷新</button>
+                        <button class="btn btn-warning" onclick="pruneDocker()">清理资源</button>
+                    </div>
+                </div>
+
+                <!-- Docker 状态提示 -->
+                <div id="docker-not-installed" style="display: none;">
+                    <div class="card">
+                        <div class="card-body" style="text-align: center; padding: 3rem;">
+                            <h3>Docker 未安装</h3>
+                            <p style="color: rgba(255,255,255,0.6); margin-top: 1rem;">
+                                请先安装 Docker: <code>curl -fsSL https://get.docker.com | sh</code>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Docker 信息卡片 -->
+                <div id="docker-content">
+                    <div class="stats-grid" style="margin-bottom: 1.5rem;">
+                        <div class="stat-card">
+                            <h4>容器总数</h4>
+                            <div class="stat-value" id="docker-containers-total">-</div>
+                        </div>
+                        <div class="stat-card">
+                            <h4>运行中</h4>
+                            <div class="stat-value" id="docker-containers-running" style="color: #4CAF50;">-</div>
+                        </div>
+                        <div class="stat-card">
+                            <h4>已停止</h4>
+                            <div class="stat-value" id="docker-containers-stopped" style="color: #FF9800;">-</div>
+                        </div>
+                        <div class="stat-card">
+                            <h4>镜像数量</h4>
+                            <div class="stat-value" id="docker-images-total">-</div>
+                        </div>
+                    </div>
+
+                    <!-- 容器列表 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>容器列表</h3>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                    <input type="checkbox" id="show-all-containers" onchange="loadDockerContainers()" checked>
+                                    <span>显示所有容器</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-container">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>名称</th>
+                                            <th>镜像</th>
+                                            <th>状态</th>
+                                            <th>端口</th>
+                                            <th>操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="docker-containers-list">
+                                        <tr><td colspan="5" class="loading">加载中...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 镜像列表 -->
+                    <div class="card" style="margin-top: 1.5rem;">
+                        <div class="card-header">
+                            <h3>镜像列表</h3>
+                            <button class="btn btn-primary" onclick="showPullImageDialog()">拉取镜像</button>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-container">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>仓库</th>
+                                            <th>标签</th>
+                                            <th>大小</th>
+                                            <th>创建时间</th>
+                                            <th>操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="docker-images-list">
+                                        <tr><td colspan="5" class="loading">加载中...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>

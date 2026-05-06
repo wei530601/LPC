@@ -1,0 +1,16 @@
+<!-- File Editor Modal Dialog -->
+<div class="modal" id="editor-modal">
+    <div class="modal-content modal-large">
+        <div class="modal-header">
+            <h3>编辑文件: <span id="editor-filename"></span></h3>
+            <button class="modal-close" onclick="closeEditor()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <textarea id="file-editor"></textarea>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeEditor()">取消</button>
+            <button class="btn btn-primary" onclick="saveFile()">保存</button>
+        </div>
+    </div>
+</div>

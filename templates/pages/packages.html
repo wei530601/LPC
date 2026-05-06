@@ -1,0 +1,43 @@
+            <!-- 包管理页面 -->
+            <div class="page" id="packages">
+                <div class="page-header">
+                    <h2>APT 包管理器</h2>
+                    <div class="package-header-buttons">
+                        <button class="btn btn-primary" onclick="aptUpdate()">更新列表</button>
+                        <button class="btn btn-warning" onclick="aptUpgrade()">系统升级</button>
+                        <button class="btn" onclick="aptClean()">清理缓存</button>
+                        <button class="btn" onclick="aptAutoremove()">自动清理</button>
+                    </div>
+                </div>
+
+                <div class="package-tabs">
+                    <button class="tab-btn active" onclick="switchPackageTab('installed')">已安装</button>
+                    <button class="tab-btn" onclick="switchPackageTab('upgradable')">可更新</button>
+                    <button class="tab-btn" onclick="switchPackageTab('search')">搜索</button>
+                </div>
+
+                <div class="package-content">
+                    <!-- 已安装软件包 -->
+                    <div class="tab-content active" id="tab-installed">
+                        <div class="search-box">
+                            <input type="text" id="filter-installed" placeholder="过滤已安装软件包..." onkeyup="filterPackages('installed')">
+                        </div>
+                        <div class="package-list" id="installed-packages"></div>
+                    </div>
+
+                    <!-- 可更新软件包 -->
+                    <div class="tab-content" id="tab-upgradable">
+                        <div class="update-info" id="upgradable-info"></div>
+                        <div class="package-list" id="upgradable-packages"></div>
+                    </div>
+
+                    <!-- 搜索软件包 -->
+                    <div class="tab-content" id="tab-search">
+                        <div class="search-box">
+                            <input type="text" id="search-keyword" placeholder="输入软件包名称...">
+                            <button class="btn btn-primary" onclick="searchPackages()">搜索</button>
+                        </div>
+                        <div class="package-list" id="search-results"></div>
+                    </div>
+                </div>
+            </div>

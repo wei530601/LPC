@@ -1,0 +1,165 @@
+            <!-- 设置页面 -->
+            <div class="page" id="settings">
+                <div class="page-header">
+                    <h2>系统设置</h2>
+                </div>
+
+                <!-- 账户设置折叠面板 -->
+                <div class="card-group">
+                    <div class="collapsible-header active" onclick="toggleCollapse(this)">
+                        <div class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            <span>账户设置</span>
+                        </div>
+                    </div>
+                    <div class="collapsible-content active">
+                        <div class="collapsible-body">
+                            <div class="form-group">
+                                <label>当前用户</label>
+                                <input type="text" value="admin" disabled>
+                            </div>
+                            <div class="form-group">
+                                <label>修改密码</label>
+                                <input type="password" id="new-password" placeholder="输入新密码">
+                            </div>
+                            <div class="form-group">
+                                <label>确认密码</label>
+                                <input type="password" id="confirm-password" placeholder="再次输入新密码">
+                            </div>
+                            <button class="btn btn-primary" onclick="changePassword()">修改密码</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 系统信息折叠面板 -->
+                <div class="card-group">
+                    <div class="collapsible-header active" onclick="toggleCollapse(this)">
+                        <div class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            <span>系统信息</span>
+                        </div>
+                    </div>
+                    <div class="collapsible-content active">
+                        <div class="collapsible-body">
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <div class="info-label">主机名</div>
+                                    <div class="info-value" id="hostname">-</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">操作系统</div>
+                                    <div class="info-value" id="os-info">-</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">内核版本</div>
+                                    <div class="info-value" id="kernel">-</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">Python 版本</div>
+                                    <div class="info-value" id="python-version">-</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 界面设置折叠面板 -->
+                <div class="card-group">
+                    <div class="collapsible-header active" onclick="toggleCollapse(this)">
+                        <div class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            <span>界面设置</span>
+                        </div>
+                    </div>
+                    <div class="collapsible-content active">
+                        <div class="collapsible-body">
+                            <div class="form-group">
+                                <label>主题模式</label>
+                                <select id="theme-mode" onchange="changeTheme()">
+                                    <option value="dark" selected>深色主题</option>
+                                    <option value="light">浅色主题</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>仪表板刷新间隔（秒）</label>
+                                <select id="refresh-interval">
+                                    <option value="1">1 秒</option>
+                                    <option value="2" selected>2 秒</option>
+                                    <option value="5">5 秒</option>
+                                    <option value="10">10 秒</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>终端字体大小</label>
+                                <select id="terminal-font-size">
+                                    <option value="12">12 px</option>
+                                    <option value="14" selected>14 px</option>
+                                    <option value="16">16 px</option>
+                                    <option value="18">18 px</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-primary" onclick="saveSettings()">保存设置</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 关于折叠面板 -->
+                <div class="card-group">
+                    <div class="collapsible-header" onclick="toggleCollapse(this)">
+                        <div class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            <span>关于</span>
+                        </div>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="collapsible-body">
+                            <div class="about-info">
+                                <h4>Pi Panel</h4>
+                                <p>树莓派控制面板</p>
+                                <p class="version">版本: 1.0.0</p>
+                                <p class="description">一个功能完整的树莓派Web管理系统</p>
+                                <div class="links">
+                                    <a href="https://github.com/wei530601/pi-panel" target="_blank" class="btn btn-sm">GitHub</a>
+                                    <a href="https://github.com/wei530601/pi-panel/blob/main/README.md" target="_blank" class="btn btn-sm">文档</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 系统更新折叠面板 -->
+                <div class="card-group">
+                    <div class="collapsible-header active" onclick="toggleCollapse(this)">
+                        <div class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            <span>系统更新</span>
+                        </div>
+                    </div>
+                    <div class="collapsible-content active">
+                        <div class="collapsible-body">
+                            <div class="update-info">
+                                <div class="info-grid">
+                                    <div class="info-item">
+                                        <div class="info-label">当前版本</div>
+                                        <div class="info-value" id="current-version">检查中...</div>
+                                    </div>
+                                    <div class="info-item">
+                                        <div class="info-label">更新状态</div>
+                                        <div class="info-value" id="update-status">检查中...</div>
+                                    </div>
+                                </div>
+                                <div id="update-message" class="update-message" style="display: none;"></div>
+                                <div class="update-buttons">
+                                    <button class="btn btn-primary" onclick="checkForUpdates()">检查更新</button>
+                                    <button class="btn btn-warning" id="update-btn" onclick="performUpdate()" style="display: none;">立即更新</button>
+                                    <button class="btn btn-danger" id="force-update-btn" onclick="forceUpdate()" style="display: none;">强制更新</button>
+                                    <button class="btn btn-danger" id="restart-btn" onclick="restartApp()" style="display: none;">重启应用</button>
+                                </div>
+                                <div style="margin-top: 1rem; font-size: 0.85rem; color: #7f8c8d;">
+                                    <strong>提示：</strong>如果普通更新失败，请使用"强制更新"（会丢弃本地修改）
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>

@@ -1,0 +1,74 @@
+            <!-- 系统控制页面 -->
+            <div class="page" id="control">
+                <div class="page-header">
+                    <h2>系统控制</h2>
+                    <div class="control-buttons">
+                        <button class="btn btn-warning" onclick="rebootSystem()">重启系统</button>
+                        <button class="btn btn-danger" onclick="shutdownSystem()">关闭系统</button>
+                    </div>
+                </div>
+
+                <!-- 运行时间 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>系统运行时间</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="info-item">
+                            <span class="label">运行时间:</span>
+                            <span class="value" id="system-uptime">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">启动时间:</span>
+                            <span class="value" id="boot-time">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 进程管理 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>进程管理</h3>
+                        <button class="btn btn-primary" onclick="loadProcesses()">刷新</button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-container">
+                            <table class="process-table">
+                                <thead>
+                                    <tr>
+                                        <th>PID</th>
+                                        <th>进程名</th>
+                                        <th>用户</th>
+                                        <th>CPU %</th>
+                                        <th>内存 %</th>
+                                        <th>状态</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="process-list">
+                                    <tr><td colspan="7" class="loading">加载中...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 系统日志 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>系统日志</h3>
+                        <div class="log-controls">
+                            <select id="log-lines" onchange="loadSystemLogs()">
+                                <option value="50">最近 50 行</option>
+                                <option value="100" selected>最近 100 行</option>
+                                <option value="200">最近 200 行</option>
+                                <option value="500">最近 500 行</option>
+                            </select>
+                            <button class="btn btn-primary" onclick="loadSystemLogs()">刷新</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <pre id="system-logs" class="log-content">加载中...</pre>
+                    </div>
+                </div>
+            </div>

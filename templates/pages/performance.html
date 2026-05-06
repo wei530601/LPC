@@ -1,0 +1,99 @@
+            <!-- 性能分析页面 -->
+            <div class="page" id="performance">
+                <div class="page-header">
+                    <h2>性能分析</h2>
+                </div>
+
+                <!-- 系统负载 -->
+                <div class="card-group">
+                    <div class="collapsible-header active" onclick="toggleCollapse(this)">
+                        <div class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            <span>系统负载</span>
+                        </div>
+                    </div>
+                    <div class="collapsible-content active">
+                        <div class="collapsible-body">
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <div class="info-label">1分钟负载</div>
+                                    <div class="info-value" id="load-1min">-</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">5分钟负载</div>
+                                    <div class="info-value" id="load-5min">-</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">15分钟负载</div>
+                                    <div class="info-value" id="load-15min">-</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">CPU核心数</div>
+                                    <div class="info-value" id="cpu-count">-</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 进程资源占用排行 -->
+                <div class="card-group">
+                    <div class="collapsible-header active" onclick="toggleCollapse(this)">
+                        <div class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            <span>进程资源占用排行</span>
+                        </div>
+                    </div>
+                    <div class="collapsible-content active">
+                        <div class="collapsible-body">
+                            <div class="tab-buttons">
+                                <button class="tab-btn active" onclick="loadTopProcesses('cpu')">CPU</button>
+                                <button class="tab-btn" onclick="loadTopProcesses('memory')">内存</button>
+                                <button class="tab-btn" onclick="loadTopProcesses('io')">I/O</button>
+                            </div>
+                            <div id="top-processes"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 磁盘I/O -->
+                <div class="card-group">
+                    <div class="collapsible-header active" onclick="toggleCollapse(this)">
+                        <div class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            <span>磁盘 I/O 监控</span>
+                        </div>
+                    </div>
+                    <div class="collapsible-content active">
+                        <div class="collapsible-body">
+                            <div class="info-grid" style="margin-bottom: 1rem;">
+                                <div class="info-item">
+                                    <div class="info-label">读取速率</div>
+                                    <div class="info-value" id="disk-read-rate">-</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">写入速率</div>
+                                    <div class="info-value" id="disk-write-rate">-</div>
+                                </div>
+                            </div>
+                            <div id="disk-io-stats"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 网络连接统计 -->
+                <div class="card-group">
+                    <div class="collapsible-header" onclick="toggleCollapse(this)">
+                        <div class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            <span>网络连接统计</span>
+                        </div>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="collapsible-body">
+                            <button class="btn btn-primary" onclick="loadConnectionStats()">刷新</button>
+                            <div id="connection-stats" style="margin-top: 1rem;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>

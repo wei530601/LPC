@@ -1,0 +1,72 @@
+            <!-- 用户管理页面 -->
+            <div class="page" id="users">
+                <div class="page-header">
+                    <h2>用户与权限管理</h2>
+                    <div class="user-header-buttons">
+                        <button class="btn btn-primary" onclick="showAddUserDialog()">添加用户</button>
+                        <button class="btn" onclick="loadLoggedInUsers()">当前登录</button>
+                        <button class="btn" onclick="loadUserGroups()">用户组</button>
+                    </div>
+                </div>
+
+                <div class="user-tabs">
+                    <button class="tab-btn active" onclick="switchUserTab('users')">用户列表</button>
+                    <button class="tab-btn" onclick="switchUserTab('groups')">用户组</button>
+                    <button class="tab-btn" onclick="switchUserTab('logged')">在线用户</button>
+                </div>
+
+                <div class="user-content">
+                    <!-- 用户列表 -->
+                    <div class="tab-content active" id="tab-users">
+                        <div class="filter-options">
+                            <label>
+                                <input type="checkbox" id="show-system-users" onchange="loadUsers()">
+                                显示系统用户
+                            </label>
+                        </div>
+                        <table class="user-table">
+                            <thead>
+                                <tr>
+                                    <th>用户名</th>
+                                    <th>UID</th>
+                                    <th>主目录</th>
+                                    <th>Shell</th>
+                                    <th>用户组</th>
+                                    <th>权限</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-table-body"></tbody>
+                        </table>
+                    </div>
+
+                    <!-- 用户组 -->
+                    <div class="tab-content" id="tab-groups">
+                        <table class="user-table">
+                            <thead>
+                                <tr>
+                                    <th>组名</th>
+                                    <th>GID</th>
+                                    <th>成员</th>
+                                </tr>
+                            </thead>
+                            <tbody id="groups-table-body"></tbody>
+                        </table>
+                    </div>
+
+                    <!-- 在线用户 -->
+                    <div class="tab-content" id="tab-logged">
+                        <table class="user-table">
+                            <thead>
+                                <tr>
+                                    <th>用户名</th>
+                                    <th>终端</th>
+                                    <th>登录时间</th>
+                                    <th>IP地址</th>
+                                </tr>
+                            </thead>
+                            <tbody id="logged-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>

@@ -1,0 +1,133 @@
+            <!-- 仪表板页面 -->
+            <div class="page active" id="dashboard">
+                <div class="page-header">
+                    <h2>系统监控</h2>
+                    <div class="uptime">运行时间: <span id="uptime">-</span></div>
+                </div>
+
+                <!-- 系统概览统计卡片 -->
+                <div class="stat-cards">
+                    <div class="stat-card blue">
+                        <div class="stat-label">CPU 平均</div>
+                        <div class="stat-number" id="cpu-avg-stat">0%</div>
+                    </div>
+                    <div class="stat-card green">
+                        <div class="stat-label">内存使用</div>
+                        <div class="stat-number" id="mem-percent-stat">0%</div>
+                    </div>
+                    <div class="stat-card orange">
+                        <div class="stat-label">磁盘使用</div>
+                        <div class="stat-number" id="disk-percent-stat">0%</div>
+                    </div>
+                    <div class="stat-card red">
+                        <div class="stat-label">系统温度</div>
+                        <div class="stat-number" id="temp-stat">0°C</div>
+                    </div>
+                </div>
+
+                <!-- CPU 信息折叠面板 -->
+                <div class="card-group">
+                    <div class="collapsible-header active" onclick="toggleCollapse(this)">
+                        <div class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            <span>处理器信息</span>
+                        </div>
+                        <span class="badge" id="cpu-avg">0%</span>
+                    </div>
+                    <div class="collapsible-content active">
+                        <div class="collapsible-body">
+                            <div id="cpu-cores"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 内存信息折叠面板 -->
+                <div class="card-group">
+                    <div class="collapsible-header active" onclick="toggleCollapse(this)">
+                        <div class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            <span>内存使用情况</span>
+                        </div>
+                        <span class="badge" id="mem-percent">0%</span>
+                    </div>
+                    <div class="collapsible-content active">
+                        <div class="collapsible-body">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="mem-bar"></div>
+                            </div>
+                            <div class="info-grid" style="margin-top: 1rem;">
+                                <div class="info-item">
+                                    <div class="info-label">已使用</div>
+                                    <div class="info-value" id="mem-used">0 MB</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">总容量</div>
+                                    <div class="info-value" id="mem-total">0 MB</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">Swap 已用</div>
+                                    <div class="info-value" id="swap-used">0 MB</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">Swap 总量</div>
+                                    <div class="info-value" id="swap-total">0 MB</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 磁盘信息折叠面板 -->
+                <div class="card-group">
+                    <div class="collapsible-header active" onclick="toggleCollapse(this)">
+                        <div class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            <span>磁盘存储</span>
+                        </div>
+                    </div>
+                    <div class="collapsible-content active">
+                        <div class="collapsible-body">
+                            <div id="disk-list"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 温度监控折叠面板 -->
+                <div class="card-group">
+                    <div class="collapsible-header active" onclick="toggleCollapse(this)">
+                        <div class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            <span>温度监控</span>
+                        </div>
+                    </div>
+                    <div class="collapsible-content active">
+                        <div class="collapsible-body">
+                            <div id="temperature-list"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 网络流量折叠面板 -->
+                <div class="card-group">
+                    <div class="collapsible-header active" onclick="toggleCollapse(this)">
+                        <div class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            <span>网络流量</span>
+                        </div>
+                    </div>
+                    <div class="collapsible-content active">
+                        <div class="collapsible-body">
+                            <div class="network-stats">
+                                <div class="network-item">
+                                    <div class="network-label">↑ 上传速度</div>
+                                    <div class="network-value" id="net-sent">0 MB/s</div>
+                                </div>
+                                <div class="network-item">
+                                    <div class="network-label">↓ 下载速度</div>
+                                    <div class="network-value" id="net-recv">0 MB/s</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
