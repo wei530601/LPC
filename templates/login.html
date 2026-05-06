@@ -13,7 +13,7 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
             display: flex;
             justify-content: center;
             align-items: center;
@@ -23,10 +23,11 @@
         .login-container {
             background: white;
             padding: 2.5rem;
-            border-radius: 12px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
             width: 100%;
             max-width: 400px;
+            border: 1px solid #e8e8e8;
         }
 
         .logo {
@@ -35,13 +36,14 @@
         }
 
         .logo h1 {
-            color: #667eea;
+            color: #2c3e50;
             font-size: 2rem;
             margin-bottom: 0.5rem;
+            font-weight: 600;
         }
 
         .logo p {
-            color: #666;
+            color: #7f8c8d;
             font-size: 0.9rem;
         }
 
@@ -52,39 +54,45 @@
         label {
             display: block;
             margin-bottom: 0.5rem;
-            color: #333;
+            color: #2c3e50;
             font-weight: 500;
+            font-size: 0.9rem;
         }
 
         input {
             width: 100%;
             padding: 0.75rem;
-            border: 2px solid #e1e8ed;
-            border-radius: 6px;
+            border: 1px solid #e1e8ed;
+            border-radius: 3px;
             font-size: 1rem;
-            transition: border-color 0.3s;
+            transition: all 0.3s;
         }
 
         input:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.1);
         }
 
         button {
             width: 100%;
             padding: 0.75rem;
-            background: #667eea;
+            background: #3498db;
             color: white;
             border: none;
-            border-radius: 6px;
+            border-radius: 3px;
             font-size: 1rem;
-            font-weight: 600;
+            font-weight: 500;
             cursor: pointer;
-            transition: background 0.3s;
+            transition: all 0.3s;
         }
 
         button:hover {
-            background: #5568d3;
+            background: #2980b9;
+        }
+
+        button:active {
+            transform: translateY(1px);
         }
 
         .error {
@@ -93,6 +101,10 @@
             margin-top: 1rem;
             text-align: center;
             display: none;
+            padding: 0.5rem;
+            background: #fef5f5;
+            border-radius: 3px;
+            border: 1px solid #fecccc;
         }
 
         .error.show {
