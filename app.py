@@ -9,10 +9,7 @@ import termios
 import struct
 import fcntl
 import shlex
-import eventlet
-
-# 让 eventlet 打补丁以支持异步操作
-eventlet.monkey_patch()
+import threading
 
 from config import Config
 from auth import User

@@ -27,7 +27,7 @@ pi-panel/
 ### 后端
 
 - **框架**: Flask 3.0
-- **WebSocket**: Flask-SocketIO + eventlet
+- **WebSocket**: Flask-SocketIO (threading 模式)
 - **认证**: Flask-Login
 - **系统信息**: psutil
 

@@ -68,7 +68,7 @@ python app.py
 - **后端**: Flask + Flask-SocketIO
 - **前端**: 原生JavaScript + xterm.js
 - **系统监控**: psutil
-- **WebSocket**: python-socketio + eventlet
+- **WebSocket**: python-socketio (threading 模式)
 
 ## 安全提示
 

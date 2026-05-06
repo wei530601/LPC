@@ -2,11 +2,9 @@
 
 ## 安装问题
 
-### Python 3.13+ gevent 编译错误
+### Python 3.13+ 兼容性问题
 
-**问题描述:**
-
-安装依赖时出现以下错误：
+**问题描述 1:** gevent 编译错误
 
 ```
 Error compiling Cython file:
@@ -14,16 +12,27 @@ undeclared name not builtin: long
 ERROR: Failed to build 'gevent' when getting requirements to build wheel
 ```
 
+**问题描述 2:** eventlet distutils 错误
+
+```
+ModuleNotFoundError: No module named 'distutils'
+```
+
 **原因:**
 
-gevent 的某些版本与 Python 3.13+ 不兼容，因为 Cython 代码中使用了 Python 2 的 `long` 类型。
+- Python 3.13 移除了 `distutils` 模块
+- gevent 和 eventlet 都不完全兼容 Python 3.13+
 
 **解决方案:**
 
-项目已改用 `eventlet` 替代 `gevent`。确保使用最新的 `requirements.txt`：
+项目已改用 Flask-SocketIO 的 `threading` 模式，无需额外异步库。重新安装依赖：
 
 ```bash
-# 重新安装依赖
+# 删除旧的虚拟环境
+rm -rf venv
+
+# 重新创建并安装
+python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```

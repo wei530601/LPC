@@ -13,7 +13,7 @@ class Config:
     MAX_CONTENT_LENGTH = 100 * 1024 * 1024  # 100MB
     
     # WebSocket
-    SOCKETIO_ASYNC_MODE = 'eventlet'
+    SOCKETIO_ASYNC_MODE = 'threading'
     
     # 会话
     SESSION_TYPE = 'filesystem'

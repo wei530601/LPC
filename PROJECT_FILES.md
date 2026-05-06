@@ -75,10 +75,10 @@
 ### 后端
 - Python 3.7+
 - Flask 3.0
-- Flask-SocketIO
+- Flask-SocketIO (threading 模式)
 - Flask-Login
 - psutil
-- eventlet
+- simple-websocket
 
 ### 前端
 - 原生 HTML5/CSS3/JavaScript
