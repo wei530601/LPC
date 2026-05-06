@@ -19,35 +19,33 @@
             
             <ul class="nav-menu">
                 <li class="nav-item active" data-page="dashboard">
-                    <img src="/static/images/dashboard.svg" alt="Dashboard" class="nav-icon">
                     <span>仪表板</span>
                 </li>
                 <li class="nav-item" data-page="services">
-                    <img src="/static/images/services.svg" alt="Services" class="nav-icon">
                     <span>服务管理</span>
                 </li>
                 <li class="nav-item" data-page="docker">
-                    <img src="/static/images/docker.svg" alt="Docker" class="nav-icon">
                     <span>Docker</span>
                 </li>
+                <li class="nav-item" data-page="packages">
+                    <span>包管理</span>
+                </li>
+                <li class="nav-item" data-page="users">
+                    <span>用户管理</span>
+                </li>
                 <li class="nav-item" data-page="control">
-                    <img src="/static/images/control.svg" alt="Control" class="nav-icon">
                     <span>系统控制</span>
                 </li>
                 <li class="nav-item" data-page="history">
-                    <img src="/static/images/history.svg" alt="History" class="nav-icon">
                     <span>历史数据</span>
                 </li>
                 <li class="nav-item" data-page="terminal">
-                    <img src="/static/images/terminal.svg" alt="Terminal" class="nav-icon">
                     <span>终端</span>
                 </li>
                 <li class="nav-item" data-page="files">
-                    <img src="/static/images/files.svg" alt="Files" class="nav-icon">
                     <span>文件管理</span>
                 </li>
                 <li class="nav-item" data-page="settings">
-                    <img src="/static/images/settings.svg" alt="Settings" class="nav-icon">
                     <span>设置</span>
                 </li>
             </ul>
@@ -298,6 +296,123 @@
                         <div class="card-body">
                             <div class="file-list" id="file-list"></div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 包管理页面 -->
+            <div class="page" id="packages">
+                <div class="page-header">
+                    <h2>APT 包管理器</h2>
+                    <div class="package-header-buttons">
+                        <button class="btn btn-primary" onclick="aptUpdate()">更新列表</button>
+                        <button class="btn btn-warning" onclick="aptUpgrade()">系统升级</button>
+                        <button class="btn" onclick="aptClean()">清理缓存</button>
+                        <button class="btn" onclick="aptAutoremove()">自动清理</button>
+                    </div>
+                </div>
+
+                <div class="package-tabs">
+                    <button class="tab-btn active" onclick="switchPackageTab('installed')">已安装</button>
+                    <button class="tab-btn" onclick="switchPackageTab('upgradable')">可更新</button>
+                    <button class="tab-btn" onclick="switchPackageTab('search')">搜索</button>
+                </div>
+
+                <div class="package-content">
+                    <!-- 已安装软件包 -->
+                    <div class="tab-content active" id="tab-installed">
+                        <div class="search-box">
+                            <input type="text" id="filter-installed" placeholder="过滤已安装软件包..." onkeyup="filterPackages('installed')">
+                        </div>
+                        <div class="package-list" id="installed-packages"></div>
+                    </div>
+
+                    <!-- 可更新软件包 -->
+                    <div class="tab-content" id="tab-upgradable">
+                        <div class="update-info" id="upgradable-info"></div>
+                        <div class="package-list" id="upgradable-packages"></div>
+                    </div>
+
+                    <!-- 搜索软件包 -->
+                    <div class="tab-content" id="tab-search">
+                        <div class="search-box">
+                            <input type="text" id="search-keyword" placeholder="输入软件包名称...">
+                            <button class="btn btn-primary" onclick="searchPackages()">搜索</button>
+                        </div>
+                        <div class="package-list" id="search-results"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 用户管理页面 -->
+            <div class="page" id="users">
+                <div class="page-header">
+                    <h2>用户与权限管理</h2>
+                    <div class="user-header-buttons">
+                        <button class="btn btn-primary" onclick="showAddUserDialog()">添加用户</button>
+                        <button class="btn" onclick="loadLoggedInUsers()">当前登录</button>
+                        <button class="btn" onclick="loadUserGroups()">用户组</button>
+                    </div>
+                </div>
+
+                <div class="user-tabs">
+                    <button class="tab-btn active" onclick="switchUserTab('users')">用户列表</button>
+                    <button class="tab-btn" onclick="switchUserTab('groups')">用户组</button>
+                    <button class="tab-btn" onclick="switchUserTab('logged')">在线用户</button>
+                </div>
+
+                <div class="user-content">
+                    <!-- 用户列表 -->
+                    <div class="tab-content active" id="tab-users">
+                        <div class="filter-options">
+                            <label>
+                                <input type="checkbox" id="show-system-users" onchange="loadUsers()">
+                                显示系统用户
+                            </label>
+                        </div>
+                        <table class="user-table">
+                            <thead>
+                                <tr>
+                                    <th>用户名</th>
+                                    <th>UID</th>
+                                    <th>主目录</th>
+                                    <th>Shell</th>
+                                    <th>用户组</th>
+                                    <th>权限</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-table-body"></tbody>
+                        </table>
+                    </div>
+
+                    <!-- 用户组 -->
+                    <div class="tab-content" id="tab-groups">
+                        <table class="user-table">
+                            <thead>
+                                <tr>
+                                    <th>组名</th>
+                                    <th>GID</th>
+                                    <th>成员</th>
+                                </tr>
+                            </thead>
+                            <tbody id="groups-table-body"></tbody>
+                        </table>
+                    </div>
+
+                    <!-- 在线用户 -->
+                    <div class="tab-content" id="tab-logged">
+                        <table class="user-table">
+                            <thead>
+                                <tr>
+                                    <th>用户名</th>
+                                    <th>终端</th>
+                                    <th>登录时间</th>
+                                    <th>IP地址</th>
+                                </tr>
+                            </thead>
+                            <tbody id="logged-table-body"></tbody>
+                        </table>
                     </div>
                 </div>
             </div>

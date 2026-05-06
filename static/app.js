@@ -16,6 +16,10 @@ document.querySelectorAll('.nav-item').forEach(item => {
             loadServices();
         } else if (page === 'docker') {
             loadDockerData();
+        } else if (page === 'packages') {
+            loadPackages();
+        } else if (page === 'users') {
+            loadUsers();
         } else if (page === 'terminal') {
             initTerminal();
         } else if (page === 'files') {
@@ -1507,6 +1511,577 @@ function showAlert(alert) {
     setTimeout(() => {
         alertEl.remove();
     }, 5000);
+}
+
+// ==================== 包管理 ====================
+
+let currentPackageTab = 'installed';
+
+function loadPackages() {
+    loadInstalledPackages();
+}
+
+function switchPackageTab(tab) {
+    currentPackageTab = tab;
+    
+    // 切换tab按钮状态
+    document.querySelectorAll('.package-tabs .tab-btn').forEach((btn, index) => {
+        btn.classList.remove('active');
+        if ((index === 0 && tab === 'installed') ||
+            (index === 1 && tab === 'upgradable') ||
+            (index === 2 && tab === 'search')) {
+            btn.classList.add('active');
+        }
+    });
+    
+    // 切换内容
+    document.querySelectorAll('.package-content .tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    document.getElementById(`tab-${tab}`).classList.add('active');
+    
+    // 加载对应数据
+    if (tab === 'installed') {
+        loadInstalledPackages();
+    } else if (tab === 'upgradable') {
+        loadUpgradablePackages();
+    }
+}
+
+async function loadInstalledPackages() {
+    try {
+        const response = await fetch('/api/apt/installed?limit=200');
+        const data = await response.json();
+        
+        if (data.success) {
+            const container = document.getElementById('installed-packages');
+            if (data.packages.length === 0) {
+                container.innerHTML = '<p style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.5);">未找到已安装的软件包</p>';
+                return;
+            }
+            
+            container.innerHTML = data.packages.map(pkg => `
+                <div class="package-item" data-name="${pkg.name}">
+                    <div class="package-info">
+                        <div class="package-name">${pkg.name}</div>
+                        <div class="package-version">${pkg.version} (${pkg.architecture})</div>
+                        <div class="package-description">${pkg.description || ''}</div>
+                    </div>
+                    <div class="package-actions">
+                        <button class="btn btn-sm" onclick="showPackageInfo('${pkg.name}')">详情</button>
+                        <button class="btn btn-sm btn-danger" onclick="removePackage('${pkg.name}')">卸载</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+    } catch (error) {
+        showMessage('加载已安装软件包失败: ' + error.message, 'error');
+    }
+}
+
+async function loadUpgradablePackages() {
+    try {
+        const response = await fetch('/api/apt/upgradable');
+        const data = await response.json();
+        
+        if (data.success) {
+            const info = document.getElementById('upgradable-info');
+            const container = document.getElementById('upgradable-packages');
+            
+            info.innerHTML = `<p>发现 <strong>${data.total}</strong> 个可更新的软件包</p>`;
+            
+            if (data.packages.length === 0) {
+                container.innerHTML = '<p style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.5);">所有软件包都是最新的</p>';
+                return;
+            }
+            
+            container.innerHTML = data.packages.map(pkg => `
+                <div class="package-item">
+                    <div class="package-info">
+                        <div class="package-name">${pkg.name}</div>
+                        <div class="package-version">
+                            ${pkg.current_version} → <strong style="color: #4CAF50;">${pkg.new_version}</strong>
+                        </div>
+                    </div>
+                    <div class="package-actions">
+                        <button class="btn btn-sm btn-primary" onclick="installPackage('${pkg.name}')">更新</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+    } catch (error) {
+        showMessage('加载可更新软件包失败: ' + error.message, 'error');
+    }
+}
+
+async function searchPackages() {
+    const keyword = document.getElementById('search-keyword').value.trim();
+    if (!keyword) {
+        showMessage('请输入搜索关键词', 'warning');
+        return;
+    }
+    
+    try {
+        const container = document.getElementById('search-results');
+        container.innerHTML = '<p style="text-align: center; padding: 2rem;">搜索中...</p>';
+        
+        const response = await fetch(`/api/apt/search?keyword=${encodeURIComponent(keyword)}&limit=50`);
+        const data = await response.json();
+        
+        if (data.success) {
+            if (data.packages.length === 0) {
+                container.innerHTML = '<p style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.5);">未找到匹配的软件包</p>';
+                return;
+            }
+            
+            container.innerHTML = data.packages.map(pkg => `
+                <div class="package-item">
+                    <div class="package-info">
+                        <div class="package-name">${pkg.name}</div>
+                        <div class="package-version">${pkg.version} ${pkg.status ? `[${pkg.status}]` : ''}</div>
+                        <div class="package-description">${pkg.description || ''}</div>
+                    </div>
+                    <div class="package-actions">
+                        <button class="btn btn-sm" onclick="showPackageInfo('${pkg.name}')">详情</button>
+                        <button class="btn btn-sm btn-primary" onclick="installPackage('${pkg.name}')">安装</button>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            container.innerHTML = `<p style="text-align: center; padding: 2rem; color: #f44336;">${data.error}</p>`;
+        }
+    } catch (error) {
+        document.getElementById('search-results').innerHTML = `<p style="text-align: center; padding: 2rem; color: #f44336;">搜索失败: ${error.message}</p>`;
+    }
+}
+
+function filterPackages(type) {
+    const input = document.getElementById(`filter-${type}`);
+    const filter = input.value.toLowerCase();
+    const items = document.querySelectorAll(`#${type}-packages .package-item`);
+    
+    items.forEach(item => {
+        const name = item.dataset.name.toLowerCase();
+        if (name.includes(filter)) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+async function aptUpdate() {
+    if (!confirm('确定要更新软件包列表吗？')) return;
+    
+    try {
+        showMessage('正在更新软件包列表...', 'info');
+        const response = await fetch('/api/apt/update', { method: 'POST' });
+        const data = await response.json();
+        
+        if (data.success) {
+            showMessage('软件包列表更新成功', 'success');
+            if (currentPackageTab === 'upgradable') {
+                loadUpgradablePackages();
+            }
+        } else {
+            showMessage('更新失败: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showMessage('更新失败: ' + error.message, 'error');
+    }
+}
+
+async function aptUpgrade() {
+    if (!confirm('确定要升级所有软件包吗？这可能需要较长时间。')) return;
+    
+    try {
+        showMessage('正在升级系统，请稍候...', 'info');
+        const response = await fetch('/api/apt/upgrade', { method: 'POST' });
+        const data = await response.json();
+        
+        if (data.success) {
+            showMessage('系统升级成功', 'success');
+            loadUpgradablePackages();
+        } else {
+            showMessage('升级失败: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showMessage('升级失败: ' + error.message, 'error');
+    }
+}
+
+async function installPackage(packageName) {
+    if (!confirm(`确定要安装 ${packageName} 吗？`)) return;
+    
+    try {
+        showMessage(`正在安装 ${packageName}...`, 'info');
+        const response = await fetch('/api/apt/install', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ package: packageName })
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            showMessage(data.message, 'success');
+            if (currentPackageTab === 'installed') {
+                loadInstalledPackages();
+            }
+        } else {
+            showMessage('安装失败: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showMessage('安装失败: ' + error.message, 'error');
+    }
+}
+
+async function removePackage(packageName) {
+    const purge = confirm(`确定要卸载 ${packageName} 吗？\n\n点击"确定"完全清除（包括配置文件）\n点击"取消"放弃操作`);
+    if (purge === null) return;
+    
+    try {
+        showMessage(`正在卸载 ${packageName}...`, 'info');
+        const response = await fetch('/api/apt/remove', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ package: packageName, purge: purge })
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            showMessage(data.message, 'success');
+            loadInstalledPackages();
+        } else {
+            showMessage('卸载失败: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showMessage('卸载失败: ' + error.message, 'error');
+    }
+}
+
+async function showPackageInfo(packageName) {
+    try {
+        const response = await fetch(`/api/apt/info?package=${encodeURIComponent(packageName)}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const info = data.info;
+            let details = '';
+            for (const [key, value] of Object.entries(info)) {
+                if (value && key !== 'Description') {
+                    details += `<strong>${key}:</strong> ${value}<br>`;
+                }
+            }
+            
+            alert(`软件包信息：\n\n${packageName}\n\n${details.replace(/<br>/g, '\n').replace(/<\/?strong>/g, '')}`);
+        } else {
+            showMessage('获取软件包信息失败: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showMessage('获取软件包信息失败: ' + error.message, 'error');
+    }
+}
+
+async function aptClean() {
+    if (!confirm('确定要清理 APT 缓存吗？')) return;
+    
+    try {
+        const response = await fetch('/api/apt/clean', { method: 'POST' });
+        const data = await response.json();
+        
+        if (data.success) {
+            showMessage('缓存清理成功', 'success');
+        } else {
+            showMessage('清理失败: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showMessage('清理失败: ' + error.message, 'error');
+    }
+}
+
+async function aptAutoremove() {
+    if (!confirm('确定要自动移除不需要的软件包吗？')) return;
+    
+    try {
+        showMessage('正在清理...', 'info');
+        const response = await fetch('/api/apt/autoremove', { method: 'POST' });
+        const data = await response.json();
+        
+        if (data.success) {
+            showMessage('自动清理完成', 'success');
+            loadInstalledPackages();
+        } else {
+            showMessage('清理失败: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showMessage('清理失败: ' + error.message, 'error');
+    }
+}
+
+// ==================== 用户管理 ====================
+
+let currentUserTab = 'users';
+
+function switchUserTab(tab) {
+    currentUserTab = tab;
+    
+    // 切换tab按钮状态
+    document.querySelectorAll('.user-tabs .tab-btn').forEach((btn, index) => {
+        btn.classList.remove('active');
+        if ((index === 0 && tab === 'users') ||
+            (index === 1 && tab === 'groups') ||
+            (index === 2 && tab === 'logged')) {
+            btn.classList.add('active');
+        }
+    });
+    
+    // 切换内容
+    document.querySelectorAll('.user-content .tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    document.getElementById(`tab-${tab}`).classList.add('active');
+    
+    // 加载对应数据
+    if (tab === 'users') {
+        loadUsers();
+    } else if (tab === 'groups') {
+        loadUserGroups();
+    } else if (tab === 'logged') {
+        loadLoggedInUsers();
+    }
+}
+
+async function loadUsers() {
+    try {
+        const includeSystem = document.getElementById('show-system-users')?.checked || false;
+        const response = await fetch(`/api/users/list?include_system=${includeSystem}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const tbody = document.getElementById('users-table-body');
+            if (data.users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.5);">无用户数据</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = data.users.map(user => `
+                <tr>
+                    <td><strong>${user.username}</strong></td>
+                    <td>${user.uid}</td>
+                    <td>${user.home}</td>
+                    <td>${user.shell}</td>
+                    <td>${user.groups.join(', ')}</td>
+                    <td>
+                        ${user.is_sudo ? '<span class="badge badge-success">sudo</span>' : '<span class="badge">普通</span>'}
+                    </td>
+                    <td>
+                        <div class="btn-group">
+                            <button class="btn btn-sm" onclick="changeUserPassword('${user.username}')">改密</button>
+                            <button class="btn btn-sm" onclick="manageUserGroups('${user.username}')">组管理</button>
+                            ${!user.is_sudo ? `<button class="btn btn-sm btn-danger" onclick="deleteUser('${user.username}')">删除</button>` : ''}
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+    } catch (error) {
+        showMessage('加载用户列表失败: ' + error.message, 'error');
+    }
+}
+
+async function loadUserGroups() {
+    try {
+        const response = await fetch('/api/users/groups');
+        const data = await response.json();
+        
+        if (data.success) {
+            const tbody = document.getElementById('groups-table-body');
+            if (data.groups.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.5);">无用户组数据</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = data.groups.filter(g => g.gid >= 1000 || ['sudo', 'docker', 'www-data'].includes(g.name))
+                .map(group => `
+                <tr>
+                    <td><strong>${group.name}</strong></td>
+                    <td>${group.gid}</td>
+                    <td>${group.members.join(', ') || '无'}</td>
+                </tr>
+            `).join('');
+        }
+    } catch (error) {
+        showMessage('加载用户组失败: ' + error.message, 'error');
+    }
+}
+
+async function loadLoggedInUsers() {
+    try {
+        const response = await fetch('/api/users/logged');
+        const data = await response.json();
+        
+        if (data.success) {
+            const tbody = document.getElementById('logged-table-body');
+            if (data.users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.5);">当前无登录用户</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = data.users.map(user => `
+                <tr>
+                    <td><strong>${user.username}</strong></td>
+                    <td>${user.terminal}</td>
+                    <td>${user.login_time}</td>
+                    <td>${user.ip}</td>
+                </tr>
+            `).join('');
+        }
+    } catch (error) {
+        showMessage('加载在线用户失败: ' + error.message, 'error');
+    }
+}
+
+function showAddUserDialog() {
+    const username = prompt('请输入用户名（小写字母、数字、下划线）:');
+    if (!username) return;
+    
+    const password = prompt('请输入密码:');
+    if (!password) return;
+    
+    const addToSudo = confirm('是否授予 sudo 权限？');
+    
+    addUser(username, password, addToSudo ? ['sudo'] : []);
+}
+
+async function addUser(username, password, groups = []) {
+    try {
+        showMessage(`正在创建用户 ${username}...`, 'info');
+        const response = await fetch('/api/users/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                username,
+                password,
+                groups,
+                create_home: true
+            })
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            showMessage(data.message, 'success');
+            loadUsers();
+        } else {
+            showMessage('创建用户失败: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showMessage('创建用户失败: ' + error.message, 'error');
+    }
+}
+
+async function deleteUser(username) {
+    if (!confirm(`确定要删除用户 ${username} 吗？`)) return;
+    
+    const removeHome = confirm('是否同时删除用户的主目录？');
+    
+    try {
+        const response = await fetch('/api/users/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, remove_home: removeHome })
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            showMessage(data.message, 'success');
+            loadUsers();
+        } else {
+            showMessage('删除用户失败: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showMessage('删除用户失败: ' + error.message, 'error');
+    }
+}
+
+async function changeUserPassword(username) {
+    const password = prompt(`请输入 ${username} 的新密码:`);
+    if (!password) return;
+    
+    try {
+        const response = await fetch('/api/users/password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            showMessage(data.message, 'success');
+        } else {
+            showMessage('修改密码失败: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showMessage('修改密码失败: ' + error.message, 'error');
+    }
+}
+
+async function manageUserGroups(username) {
+    const action = prompt(`用户组管理：${username}\n\n输入 "add" 添加到组\n输入 "remove" 从组移除`);
+    if (!action) return;
+    
+    const group = prompt('请输入组名（如: sudo, docker）:');
+    if (!group) return;
+    
+    try {
+        const endpoint = action === 'add' ? '/api/users/group/add' : '/api/users/group/remove';
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, group })
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            showMessage(data.message, 'success');
+            loadUsers();
+        } else {
+            showMessage('操作失败: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showMessage('操作失败: ' + error.message, 'error');
+    }
+}
+
+function showMessage(message, type = 'info') {
+    const colors = {
+        info: '#2196F3',
+        success: '#4CAF50',
+        warning: '#FF9800',
+        error: '#f44336'
+    };
+    
+    const msgDiv = document.createElement('div');
+    msgDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${colors[type] || colors.info};
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        z-index: 10000;
+        max-width: 400px;
+        animation: slideIn 0.3s ease-out;
+    `;
+    msgDiv.textContent = message;
+    
+    document.body.appendChild(msgDiv);
+    
+    setTimeout(() => {
+        msgDiv.style.animation = 'slideOut 0.3s ease-out';
+        setTimeout(() => msgDiv.remove(), 300);
+    }, 3000);
 }
 
 // ==================== 初始化 ====================

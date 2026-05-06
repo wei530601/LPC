@@ -19,6 +19,8 @@ from service_manager import ServiceManager
 from system_control import SystemControl
 from history_data import HistoryData
 from docker_manager import DockerManager
+from apt_manager import AptManager
+from user_manager import UserManager
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -497,6 +499,210 @@ def pull_image_api():
 def prune_system_api():
     """清理 Docker 系统"""
     return jsonify(DockerManager.prune_system())
+
+# ============ APT 包管理API ============
+
+@app.route('/api/apt/update', methods=['POST'])
+@login_required
+def apt_update():
+    """更新软件包列表"""
+    return jsonify(AptManager.update_package_list())
+
+@app.route('/api/apt/upgrade', methods=['POST'])
+@login_required
+def apt_upgrade():
+    """升级所有软件包"""
+    return jsonify(AptManager.upgrade_packages())
+
+@app.route('/api/apt/install', methods=['POST'])
+@login_required
+def apt_install():
+    """安装软件包"""
+    data = request.get_json()
+    package = data.get('package')
+    if not package:
+        return jsonify({'success': False, 'error': '未指定软件包名称'}), 400
+    return jsonify(AptManager.install_package(package))
+
+@app.route('/api/apt/remove', methods=['POST'])
+@login_required
+def apt_remove():
+    """卸载软件包"""
+    data = request.get_json()
+    package = data.get('package')
+    purge = data.get('purge', False)
+    if not package:
+        return jsonify({'success': False, 'error': '未指定软件包名称'}), 400
+    return jsonify(AptManager.remove_package(package, purge))
+
+@app.route('/api/apt/search')
+@login_required
+def apt_search():
+    """搜索软件包"""
+    keyword = request.args.get('keyword', '')
+    limit = request.args.get('limit', 50, type=int)
+    if not keyword:
+        return jsonify({'success': False, 'error': '未指定搜索关键词'}), 400
+    return jsonify(AptManager.search_packages(keyword, limit))
+
+@app.route('/api/apt/installed')
+@login_required
+def apt_installed():
+    """列出已安装的软件包"""
+    limit = request.args.get('limit', 100, type=int)
+    return jsonify(AptManager.list_installed_packages(limit))
+
+@app.route('/api/apt/info')
+@login_required
+def apt_info():
+    """获取软件包详细信息"""
+    package = request.args.get('package')
+    if not package:
+        return jsonify({'success': False, 'error': '未指定软件包名称'}), 400
+    return jsonify(AptManager.get_package_info(package))
+
+@app.route('/api/apt/upgradable')
+@login_required
+def apt_upgradable():
+    """列出可更新的软件包"""
+    return jsonify(AptManager.list_upgradable())
+
+@app.route('/api/apt/clean', methods=['POST'])
+@login_required
+def apt_clean():
+    """清理缓存"""
+    return jsonify(AptManager.clean_cache())
+
+@app.route('/api/apt/autoremove', methods=['POST'])
+@login_required
+def apt_autoremove():
+    """自动移除不需要的软件包"""
+    return jsonify(AptManager.autoremove())
+
+# ============ 用户管理API ============
+
+@app.route('/api/users/list')
+@login_required
+def list_users():
+    """列出所有用户"""
+    include_system = request.args.get('include_system', 'false').lower() == 'true'
+    return jsonify(UserManager.list_users(include_system))
+
+@app.route('/api/users/add', methods=['POST'])
+@login_required
+def add_user():
+    """添加用户"""
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+    groups = data.get('groups', [])
+    create_home = data.get('create_home', True)
+    
+    if not username or not password:
+        return jsonify({'success': False, 'error': '用户名和密码不能为空'}), 400
+    
+    return jsonify(UserManager.add_user(username, password, groups, create_home))
+
+@app.route('/api/users/delete', methods=['POST'])
+@login_required
+def delete_user():
+    """删除用户"""
+    data = request.get_json()
+    username = data.get('username')
+    remove_home = data.get('remove_home', False)
+    
+    if not username:
+        return jsonify({'success': False, 'error': '未指定用户名'}), 400
+    
+    return jsonify(UserManager.delete_user(username, remove_home))
+
+@app.route('/api/users/password', methods=['POST'])
+@login_required
+def change_user_password():
+    """修改用户密码"""
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+    
+    if not username or not password:
+        return jsonify({'success': False, 'error': '用户名和密码不能为空'}), 400
+    
+    return jsonify(UserManager.change_password(username, password))
+
+@app.route('/api/users/groups')
+@login_required
+def list_groups():
+    """列出所有用户组"""
+    return jsonify(UserManager.list_groups())
+
+@app.route('/api/users/group/add', methods=['POST'])
+@login_required
+def add_to_group():
+    """添加用户到组"""
+    data = request.get_json()
+    username = data.get('username')
+    group = data.get('group')
+    
+    if not username or not group:
+        return jsonify({'success': False, 'error': '用户名和组名不能为空'}), 400
+    
+    return jsonify(UserManager.add_user_to_group(username, group))
+
+@app.route('/api/users/group/remove', methods=['POST'])
+@login_required
+def remove_from_group():
+    """从组中移除用户"""
+    data = request.get_json()
+    username = data.get('username')
+    group = data.get('group')
+    
+    if not username or not group:
+        return jsonify({'success': False, 'error': '用户名和组名不能为空'}), 400
+    
+    return jsonify(UserManager.remove_user_from_group(username, group))
+
+@app.route('/api/users/logged')
+@login_required
+def logged_in_users():
+    """获取当前登录的用户"""
+    return jsonify(UserManager.get_logged_in_users())
+
+@app.route('/api/users/sudo', methods=['POST'])
+@login_required
+def set_sudo():
+    """设置 sudo 权限"""
+    data = request.get_json()
+    username = data.get('username')
+    enable = data.get('enable', True)
+    
+    if not username:
+        return jsonify({'success': False, 'error': '未指定用户名'}), 400
+    
+    return jsonify(UserManager.set_sudo_privilege(username, enable))
+
+@app.route('/api/users/lock', methods=['POST'])
+@login_required
+def lock_user():
+    """锁定用户"""
+    data = request.get_json()
+    username = data.get('username')
+    
+    if not username:
+        return jsonify({'success': False, 'error': '未指定用户名'}), 400
+    
+    return jsonify(UserManager.lock_user(username))
+
+@app.route('/api/users/unlock', methods=['POST'])
+@login_required
+def unlock_user():
+    """解锁用户"""
+    data = request.get_json()
+    username = data.get('username')
+    
+    if not username:
+        return jsonify({'success': False, 'error': '未指定用户名'}), 400
+    
+    return jsonify(UserManager.unlock_user(username))
 
 # ============ 文件管理API ============
 
