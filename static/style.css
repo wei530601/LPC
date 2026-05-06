@@ -152,6 +152,15 @@ body {
     border: 1px solid #e8e8e8;
 }
 
+/* 确保卡片中的文本颜色清晰 */
+.card strong {
+    color: #2c3e50;
+}
+
+.card td {
+    color: #2c3e50;
+}
+
 .card-header {
     padding: 1rem 1.5rem;
     border-bottom: 1px solid #ecf0f1;
@@ -184,7 +193,7 @@ body {
 /* 徽章 */
 .badge {
     padding: 0.25rem 0.75rem;
-    background: #3498db;
+    background: #6c757d;
     color: white;
     border-radius: 2px;
     font-size: 0.85rem;
@@ -412,6 +421,7 @@ body {
     padding: 0.75rem;
     text-align: left;
     border-bottom: 1px solid #ecf0f1;
+    color: #2c3e50;
 }
 
 .table th {
@@ -421,6 +431,12 @@ body {
 
 .table tbody tr:hover {
     background: #f8f9fa;
+}
+
+/* 确保表格中的强调文本使用深灰色 */
+.table strong {
+    color: #2c3e50;
+    font-weight: 600;
 }
 
 .status-badge {
@@ -1169,19 +1185,19 @@ body {
 
 .package-name {
     font-weight: 600;
-    color: #4CAF50;
+    color: #555;
     margin-bottom: 0.25rem;
 }
 
 .package-version {
     font-size: 0.85rem;
-    color: rgba(255, 255, 255, 0.6);
+    color: #777;
     margin-bottom: 0.25rem;
 }
 
 .package-description {
     font-size: 0.9rem;
-    color: rgba(255, 255, 255, 0.7);
+    color: #666;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1273,6 +1289,12 @@ body {
     border-bottom: none;
 }
 
+/* 用户表格中的强调文本 */
+.user-table strong {
+    color: #555;
+    font-weight: 600;
+}
+
 .badge {
     display: inline-block;
     padding: 0.25rem 0.75rem;
@@ -1322,6 +1344,15 @@ body {
     border-radius: 3px;
     margin-bottom: 1.5rem;
     overflow: hidden;
+}
+
+/* 确保卡片组中的文本颜色清晰 */
+.card-group strong {
+    color: #2c3e50;
+}
+
+.card-group td {
+    color: #2c3e50;
 }
 
 /* 折叠面板头部 */
@@ -1572,6 +1603,11 @@ body {
     border-bottom: none;
 }
 
+.modern-table strong {
+    color: #2c3e50;
+    font-weight: 600;
+}
+
 /* 动画 */
 @keyframes fadeIn {
     from {
@@ -1755,7 +1791,19 @@ body.light-theme .logout-btn:hover {
 }
 
 body.light-theme .badge {
-    background: #667eea;
+    background: #6c757d;
+}
+
+body.light-theme .package-name {
+    color: #2c3e50;
+}
+
+body.light-theme .package-version {
+    color: #6c757d;
+}
+
+body.light-theme .package-description {
+    color: #495057;
 }
 
 body.light-theme .cpu-core {
@@ -1790,6 +1838,22 @@ body.light-theme .table {
 
 body.light-theme .table td {
     color: #333;
+}
+
+body.light-theme .table strong {
+    color: #2c3e50;
+}
+
+body.light-theme .user-table td {
+    color: #2c3e50;
+}
+
+body.light-theme .user-table strong {
+    color: #2c3e50;
+}
+
+body.light-theme .user-table tbody tr:hover {
+    background: #f8f9fa;
 }
 
 body.light-theme .tab-btn {
