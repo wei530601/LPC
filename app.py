@@ -29,6 +29,7 @@ file_manager = FileManager(Config.FILE_ROOT)
 
 # 存储终端会话
 terminals = {}
+terminal_locks = {}
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -200,19 +201,27 @@ def set_winsize(fd, row, col, xpix=0, ypix=0):
     fcntl.ioctl(fd, termios.TIOCSWINSZ, winsize)
 
 def read_and_forward_pty_output(fd, sid):
+    """读取 pty 输出并通过 WebSocket 转发"""
     max_read_bytes = 1024 * 20
     while True:
-        socketio.sleep(0.01)
-        if fd in terminals:
-            timeout_sec = 0
+        try:
+            # 检查终端是否还存在
+            if sid not in terminals:
+                break
+            
+            # 使用 select 检查是否有数据可读
+            timeout_sec = 0.1
             (data_ready, _, _) = select.select([fd], [], [], timeout_sec)
+            
             if data_ready:
-                try:
-                    output = os.read(fd, max_read_bytes).decode('utf-8', errors='ignore')
+                output = os.read(fd, max_read_bytes).decode('utf-8', errors='ignore')
+                if output:
                     socketio.emit('terminal_output', {'output': output}, room=sid, namespace='/terminal')
-                except OSError:
-                    break
-        else:
+        except (OSError, ValueError):
+            # 文件描述符关闭或出错
+            break
+        except Exception as e:
+            print(f"Terminal read error: {e}")
             break
 
 @socketio.on('connect', namespace='/terminal')
@@ -230,23 +239,35 @@ def start_terminal(data):
     if sid in terminals:
         return
     
-    (child_pid, fd) = pty.fork()
-    
-    if child_pid == 0:
-        # 子进程
-        subprocess.run(['bash'])
-    else:
-        # 父进程
-        terminals[sid] = {
-            'pid': child_pid,
-            'fd': fd
-        }
+    try:
+        (child_pid, fd) = pty.fork()
         
-        set_winsize(fd, data.get('rows', 24), data.get('cols', 80))
-        
-        socketio.start_background_task(target=read_and_forward_pty_output, fd=fd, sid=sid)
-        
-        emit('terminal_ready', {'status': 'ready'})
+        if child_pid == 0:
+            # 子进程 - 执行 bash
+            subprocess.run(['bash', '-i'])
+            os._exit(0)
+        else:
+            # 父进程
+            terminals[sid] = {
+                'pid': child_pid,
+                'fd': fd
+            }
+            
+            # 设置终端大小
+            set_winsize(fd, data.get('rows', 24), data.get('cols', 80))
+            
+            # 使用 threading.Thread 启动读取线程
+            reader_thread = threading.Thread(
+                target=read_and_forward_pty_output,
+                args=(fd, sid),
+                daemon=True
+            )
+            reader_thread.start()
+            
+            emit('terminal_ready', {'status': 'ready'})
+    except Exception as e:
+        print(f"Failed to start terminal: {e}")
+        emit('terminal_error', {'error': str(e)})
 
 @socketio.on('terminal_input', namespace='/terminal')
 def terminal_input(data):
@@ -279,10 +300,18 @@ def terminal_disconnect():
     
     if sid in terminals:
         try:
+            # 关闭文件描述符
             os.close(terminals[sid]['fd'])
+        except:
+            pass
+        
+        try:
+            # 终止子进程
             os.kill(terminals[sid]['pid'], 9)
         except:
             pass
+        
+        # 从字典中删除
         del terminals[sid]
 
 if __name__ == '__main__':

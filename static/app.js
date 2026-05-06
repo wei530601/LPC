@@ -264,7 +264,12 @@ function initTerminal() {
     });
     
     socket.on('terminal_ready', () => {
-        term.write('\r\n欢迎使用 Pi Panel Web 终端\r\n\r\n');
+        term.write('\r\n欢迎使用 Pi Panel 终端\r\n');
+        term.write('输入命令开始使用...\r\n\r\n');
+    });
+    
+    socket.on('terminal_error', (data) => {
+        term.write('\r\n错误: ' + data.error + '\r\n');
     });
     
     socket.on('terminal_output', (data) => {
@@ -352,7 +357,7 @@ function createFileItem(item, basePath) {
     div.className = 'file-item';
     
     const isDir = item.type === 'directory';
-    const icon = isDir ? '📁' : '📄';
+    const icon = isDir ? '[DIR]' : '[FILE]';
     const itemPath = item.name === '..' ? basePath.split('/').slice(0, -1).join('/') || '/' : 
                      `${basePath}/${item.name}`.replace('//', '/');
     
