@@ -1,3 +1,36 @@
+// ==================== 折叠面板功能 ====================
+
+function toggleCollapse(header) {
+    const content = header.nextElementSibling;
+    const isActive = header.classList.contains('active');
+    
+    if (isActive) {
+        header.classList.remove('active');
+        content.classList.remove('active');
+    } else {
+        header.classList.add('active');
+        content.classList.add('active');
+    }
+}
+
+// 全部展开
+function expandAll() {
+    document.querySelectorAll('.collapsible-header').forEach(header => {
+        header.classList.add('active');
+        header.nextElementSibling.classList.add('active');
+    });
+}
+
+// 全部折叠
+function collapseAll() {
+    document.querySelectorAll('.collapsible-header').forEach(header => {
+        header.classList.remove('active');
+        header.nextElementSibling.classList.remove('active');
+    });
+}
+
+// ==================== 页面切换 ====================
+
 // 页面切换
 document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', () => {
@@ -82,8 +115,14 @@ async function updateDashboard() {
             cpuCores.appendChild(coreDiv);
         });
         
-        document.getElementById('cpu-avg').textContent = 
-            (totalCpu / data.cpu.percent.length).toFixed(1) + '%';
+        const avgCpu = (totalCpu / data.cpu.percent.length).toFixed(1);
+        document.getElementById('cpu-avg').textContent = avgCpu + '%';
+        
+        // 更新统计卡片 - CPU
+        const cpuStatEl = document.getElementById('cpu-avg-stat');
+        if (cpuStatEl) {
+            cpuStatEl.textContent = avgCpu + '%';
+        }
         
         // 内存
         const memPercent = data.memory.percent;
@@ -94,10 +133,20 @@ async function updateDashboard() {
         document.getElementById('swap-used').textContent = formatBytes(data.memory.swap.used);
         document.getElementById('swap-total').textContent = formatBytes(data.memory.swap.total);
         
+        // 更新统计卡片 - 内存
+        const memStatEl = document.getElementById('mem-percent-stat');
+        if (memStatEl) {
+            memStatEl.textContent = memPercent.toFixed(1) + '%';
+        }
+        
         // 磁盘
         const diskList = document.getElementById('disk-list');
         diskList.innerHTML = '';
+        let maxDiskPercent = 0;
         data.disk.forEach(disk => {
+            if (disk.percent > maxDiskPercent) {
+                maxDiskPercent = disk.percent;
+            }
             const diskDiv = document.createElement('div');
             diskDiv.className = 'disk-item';
             diskDiv.innerHTML = `
@@ -115,11 +164,22 @@ async function updateDashboard() {
             diskList.appendChild(diskDiv);
         });
         
+        // 更新统计卡片 - 磁盘
+        const diskStatEl = document.getElementById('disk-percent-stat');
+        if (diskStatEl) {
+            diskStatEl.textContent = maxDiskPercent.toFixed(1) + '%';
+        }
+        
         // 温度
         const tempList = document.getElementById('temperature-list');
         tempList.innerHTML = '';
+        let avgTemp = 0;
+        let tempCount = 0;
         
         for (const [name, temp] of Object.entries(data.temperature)) {
+            avgTemp += temp;
+            tempCount++;
+            
             const tempDiv = document.createElement('div');
             tempDiv.className = 'temp-item';
             
@@ -136,6 +196,16 @@ async function updateDashboard() {
         
         if (Object.keys(data.temperature).length === 0) {
             tempList.innerHTML = '<div class="stats">温度信息不可用</div>';
+        }
+        
+        // 更新统计卡片 - 温度
+        const tempStatEl = document.getElementById('temp-stat');
+        if (tempStatEl) {
+            if (tempCount > 0) {
+                tempStatEl.textContent = (avgTemp / tempCount).toFixed(1) + '°C';
+            } else {
+                tempStatEl.textContent = 'N/A';
+            }
         }
         
         // 网络（计算速度）

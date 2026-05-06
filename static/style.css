@@ -15,7 +15,7 @@ body {
     height: 100vh;
 }
 
-/* 侧边栏 */
+/* 侧边�?*/
 .sidebar {
     width: 250px;
     background: #2c3e50;
@@ -103,7 +103,7 @@ body {
     color: white;
     text-align: center;
     text-decoration: none;
-    border-radius: 6px;
+    border-radius: 3px;
     transition: background 0.3s;
 }
 
@@ -111,7 +111,7 @@ body {
     background: #c0392b;
 }
 
-/* 主内容区域 */
+/* 主内容区�?*/
 .main-content {
     flex: 1;
     overflow-y: auto;
@@ -146,9 +146,10 @@ body {
 /* 卡片 */
 .card {
     background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border-radius: 3px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
     margin-bottom: 1.5rem;
+    border: 1px solid #e8e8e8;
 }
 
 .card-header {
@@ -169,7 +170,7 @@ body {
     padding: 1.5rem;
 }
 
-/* 仪表板网格 */
+/* 仪表板网�?*/
 .dashboard-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
@@ -185,7 +186,7 @@ body {
     padding: 0.25rem 0.75rem;
     background: #3498db;
     color: white;
-    border-radius: 12px;
+    border-radius: 2px;
     font-size: 0.85rem;
     font-weight: 600;
 }
@@ -213,12 +214,12 @@ body {
     color: #2c3e50;
 }
 
-/* 进度条 */
+/* 进度�?*/
 .progress-bar {
     width: 100%;
     height: 24px;
     background: #ecf0f1;
-    border-radius: 12px;
+    border-radius: 2px;
     overflow: hidden;
     margin-bottom: 1rem;
 }
@@ -330,7 +331,7 @@ body {
 .btn {
     padding: 0.5rem 1rem;
     border: none;
-    border-radius: 6px;
+    border-radius: 3px;
     cursor: pointer;
     font-size: 0.9rem;
     font-weight: 500;
@@ -384,7 +385,7 @@ body {
     width: 100%;
     padding: 0.75rem;
     border: 2px solid #ecf0f1;
-    border-radius: 6px;
+    border-radius: 3px;
     font-size: 1rem;
 }
 
@@ -424,7 +425,7 @@ body {
 
 .status-badge {
     padding: 0.25rem 0.75rem;
-    border-radius: 12px;
+    border-radius: 2px;
     font-size: 0.85rem;
     font-weight: 500;
 }
@@ -470,7 +471,7 @@ body {
     margin-bottom: 1rem;
     padding: 0.75rem;
     background: white;
-    border-radius: 6px;
+    border-radius: 3px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
@@ -555,7 +556,7 @@ body {
 
 .modal-content {
     background: white;
-    border-radius: 8px;
+    border-radius: 3px;
     width: 90%;
     max-width: 600px;
     max-height: 90vh;
@@ -604,7 +605,7 @@ body {
     min-height: 400px;
     padding: 1rem;
     border: 2px solid #ecf0f1;
-    border-radius: 6px;
+    border-radius: 3px;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
     font-size: 0.9rem;
     resize: vertical;
@@ -643,7 +644,7 @@ body {
     width: 100%;
     padding: 0.75rem;
     border: 2px solid #ecf0f1;
-    border-radius: 6px;
+    border-radius: 3px;
     font-size: 0.95rem;
     transition: border-color 0.3s;
 }
@@ -764,7 +765,7 @@ body {
 
 .status-badge {
     padding: 0.25rem 0.75rem;
-    border-radius: 12px;
+    border-radius: 2px;
     font-size: 0.875rem;
     font-weight: 500;
 }
@@ -920,7 +921,7 @@ body {
 .stat-card {
     background: rgba(255, 255, 255, 0.05);
     padding: 1.5rem;
-    border-radius: 8px;
+    border-radius: 3px;
     border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -981,7 +982,7 @@ body {
     background: #dc3545;
     color: white;
     padding: 1rem;
-    border-radius: 8px;
+    border-radius: 3px;
     margin-bottom: 0.5rem;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
     animation: slideIn 0.3s ease-out;
@@ -1020,7 +1021,7 @@ body {
     }
 }
 
-/* 响应式 */
+/* 响应�?*/
 @media (max-width: 768px) {
     .sidebar {
         width: 60px;
@@ -1070,7 +1071,7 @@ body {
     }
 }
 
-/* 包管理样式 */
+/* 包管理样�?*/
 .package-header-buttons {
     display: flex;
     gap: 0.5rem;
@@ -1275,7 +1276,7 @@ body {
 .badge {
     display: inline-block;
     padding: 0.25rem 0.75rem;
-    border-radius: 12px;
+    border-radius: 2px;
     font-size: 0.8rem;
     font-weight: 600;
     background: rgba(255, 255, 255, 0.2);
@@ -1312,3 +1313,339 @@ body {
     display: none;
 }
 
+/* ==================== 折叠面板样式 ==================== */
+
+/* 卡片组容器 */
+.card-group {
+    background: white;
+    border: 1px solid #e8e8e8;
+    border-radius: 3px;
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+}
+
+/* 折叠面板头部 */
+.collapsible-header {
+    padding: 1rem 1.5rem;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e8e8e8;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s;
+    user-select: none;
+}
+
+.collapsible-header:hover {
+    background: #f0f2f5;
+}
+
+.collapsible-header.active {
+    background: #e8eaed;
+}
+
+.collapsible-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #2c3e50;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.collapsible-icon {
+    font-size: 0.9rem;
+    color: #7f8c8d;
+    transition: transform 0.2s;
+}
+
+.collapsible-header.active .collapsible-icon {
+    transform: rotate(90deg);
+}
+
+/* 折叠面板内容 */
+.collapsible-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+}
+
+.collapsible-content.active {
+    max-height: 5000px;
+    transition: max-height 0.5s ease-in;
+}
+
+.collapsible-body {
+    padding: 1.5rem;
+}
+
+/* 分组样式 */
+.metric-group {
+    margin-bottom: 1.5rem;
+}
+
+.metric-group:last-child {
+    margin-bottom: 0;
+}
+
+.group-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #7f8c8d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #ecf0f1;
+}
+
+/* 优化按钮样式 */
+.btn {
+    padding: 0.5rem 1rem;
+    background: #3498db;
+    color: white;
+    border: none;
+    border-radius: 2px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn:hover {
+    background: #2980b9;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.btn:active {
+    transform: translateY(0);
+}
+
+.btn-primary {
+    background: #3498db;
+}
+
+.btn-primary:hover {
+    background: #2980b9;
+}
+
+.btn-success {
+    background: #27ae60;
+}
+
+.btn-success:hover {
+    background: #229954;
+}
+
+.btn-warning {
+    background: #f39c12;
+}
+
+.btn-warning:hover {
+    background: #e67e22;
+}
+
+.btn-danger {
+    background: #e74c3c;
+}
+
+.btn-danger:hover {
+    background: #c0392b;
+}
+
+.btn-sm {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.85rem;
+}
+
+/* 改进的卡片网格 */
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.info-item {
+    padding: 0.75rem;
+    background: #f8f9fa;
+    border: 1px solid #e8e8e8;
+    border-radius: 2px;
+}
+
+.info-label {
+    font-size: 0.85rem;
+    color: #7f8c8d;
+    margin-bottom: 0.25rem;
+}
+
+.info-value {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+/* 统计卡片 */
+.stat-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat-card {
+    padding: 1rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 3px;
+    color: white;
+    text-align: center;
+}
+
+.stat-card.blue {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.stat-card.green {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.stat-card.orange {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.stat-card.red {
+    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+}
+
+.stat-label {
+    font-size: 0.85rem;
+    opacity: 0.9;
+    margin-bottom: 0.5rem;
+}
+
+.stat-number {
+    font-size: 1.75rem;
+    font-weight: 700;
+}
+
+/* 改进表格样式 */
+.modern-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: white;
+    border: 1px solid #e8e8e8;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.modern-table thead {
+    background: #f8f9fa;
+}
+
+.modern-table th {
+    padding: 0.875rem 1rem;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #5a6c7d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid #e8e8e8;
+}
+
+.modern-table td {
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid #f0f0f0;
+    color: #2c3e50;
+}
+
+.modern-table tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.modern-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* 动画 */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* 改进输入框 */
+input[type="text"],
+input[type="password"],
+input[type="number"],
+textarea,
+select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #e8e8e8;
+    border-radius: 2px;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+    background: white;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="number"]:focus,
+textarea:focus,
+select:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+/* 优化响应式 */
+@media (max-width: 1024px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .card-wide {
+        grid-column: span 1;
+    }
+    
+    .stat-cards {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .main-content {
+        padding: 1rem;
+    }
+    
+    .collapsible-header {
+        padding: 0.875rem 1rem;
+    }
+    
+    .collapsible-body {
+        padding: 1rem;
+    }
+    
+    .stat-cards {
+        grid-template-columns: 1fr;
+    }
+    
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+}
