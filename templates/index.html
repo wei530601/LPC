@@ -12,25 +12,30 @@
         <!-- 侧边栏 -->
         <nav class="sidebar">
             <div class="sidebar-header">
-                <h1>◉ Pi Panel</h1>
+                <img src="/static/images/logo.svg" alt="Logo" class="logo-icon">
+                <h1>Pi Panel</h1>
             </div>
             
             <ul class="nav-menu">
                 <li class="nav-item active" data-page="dashboard">
-                    <span class="icon">▦</span>
+                    <img src="/static/images/dashboard.svg" alt="Dashboard" class="nav-icon">
                     <span>仪表板</span>
                 </li>
                 <li class="nav-item" data-page="services">
-                    <span class="icon">◈</span>
+                    <img src="/static/images/services.svg" alt="Services" class="nav-icon">
                     <span>服务管理</span>
                 </li>
                 <li class="nav-item" data-page="terminal">
-                    <span class="icon">▣</span>
+                    <img src="/static/images/terminal.svg" alt="Terminal" class="nav-icon">
                     <span>终端</span>
                 </li>
                 <li class="nav-item" data-page="files">
-                    <span class="icon">◫</span>
+                    <img src="/static/images/files.svg" alt="Files" class="nav-icon">
                     <span>文件管理</span>
+                </li>
+                <li class="nav-item" data-page="settings">
+                    <img src="/static/images/settings.svg" alt="Settings" class="nav-icon">
+                    <span>设置</span>
                 </li>
             </ul>
             
@@ -177,6 +182,109 @@
                     <div class="card">
                         <div class="card-body">
                             <div class="file-list" id="file-list"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 设置页面 -->
+            <div class="page" id="settings">
+                <div class="page-header">
+                    <h2>系统设置</h2>
+                </div>
+
+                <div class="settings-grid">
+                    <!-- 账户设置 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>账户设置</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label>当前用户</label>
+                                <input type="text" value="admin" disabled>
+                            </div>
+                            <div class="form-group">
+                                <label>修改密码</label>
+                                <input type="password" id="new-password" placeholder="输入新密码">
+                            </div>
+                            <div class="form-group">
+                                <label>确认密码</label>
+                                <input type="password" id="confirm-password" placeholder="再次输入新密码">
+                            </div>
+                            <button class="btn btn-primary" onclick="changePassword()">修改密码</button>
+                        </div>
+                    </div>
+
+                    <!-- 系统信息 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>系统信息</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="info-item">
+                                <span class="info-label">主机名</span>
+                                <span class="info-value" id="hostname">-</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">操作系统</span>
+                                <span class="info-value" id="os-info">-</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">内核版本</span>
+                                <span class="info-value" id="kernel">-</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Python 版本</span>
+                                <span class="info-value" id="python-version">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 界面设置 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>界面设置</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label>仪表板刷新间隔（秒）</label>
+                                <select id="refresh-interval">
+                                    <option value="1">1 秒</option>
+                                    <option value="2" selected>2 秒</option>
+                                    <option value="5">5 秒</option>
+                                    <option value="10">10 秒</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>终端字体大小</label>
+                                <select id="terminal-font-size">
+                                    <option value="12">12 px</option>
+                                    <option value="14" selected>14 px</option>
+                                    <option value="16">16 px</option>
+                                    <option value="18">18 px</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-primary" onclick="saveSettings()">保存设置</button>
+                        </div>
+                    </div>
+
+                    <!-- 关于 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>关于</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="about-info">
+                                <h4>Pi Panel</h4>
+                                <p>树莓派控制面板</p>
+                                <p class="version">版本: 1.0.0</p>
+                                <p class="description">一个功能完整的树莓派Web管理系统</p>
+                                <div class="links">
+                                    <a href="https://github.com/wei530601/pi-panel" target="_blank" class="btn btn-sm">GitHub</a>
+                                    <a href="https://github.com/wei530601/pi-panel/blob/main/README.md" target="_blank" class="btn btn-sm">文档</a>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

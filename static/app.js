@@ -18,6 +18,9 @@ document.querySelectorAll('.nav-item').forEach(item => {
             initTerminal();
         } else if (page === 'files') {
             loadFiles('/');
+        } else if (page === 'settings') {
+            loadSystemInfo();
+            applySettings();
         }
     });
 });
@@ -352,7 +355,7 @@ function createFileItem(item, basePath) {
     div.className = 'file-item';
     
     const isDir = item.type === 'directory';
-    const icon = isDir ? '▶' : '▫';
+    const icon = isDir ? '<img src="/static/images/folder.svg" class="file-item-icon">' : '<img src="/static/images/file.svg" class="file-item-icon">';
     const itemPath = item.name === '..' ? basePath.split('/').slice(0, -1).join('/') || '/' : 
                      `${basePath}/${item.name}`.replace('//', '/');
     
@@ -554,9 +557,95 @@ function uploadFile() {
     input.click();
 }
 
+// ==================== 设置功能 ====================
+
+// 修改密码
+function changePassword() {
+    const newPassword = document.getElementById('new-password').value;
+    const confirmPassword = document.getElementById('confirm-password').value;
+    
+    if (!newPassword || !confirmPassword) {
+        alert('请输入密码');
+        return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+        alert('两次输入的密码不一致');
+        return;
+    }
+    
+    if (newPassword.length < 6) {
+        alert('密码长度至少6位');
+        return;
+    }
+    
+    alert('密码修改功能需要在 config.py 中手动修改\n\n当前默认密码在配置文件中设置:\nDEFAULT_PASSWORD = "' + newPassword + '"\n\n修改后重启服务生效。');
+    
+    document.getElementById('new-password').value = '';
+    document.getElementById('confirm-password').value = '';
+}
+
+// 保存界面设置
+function saveSettings() {
+    const refreshInterval = document.getElementById('refresh-interval').value;
+    const terminalFontSize = document.getElementById('terminal-font-size').value;
+    
+    // 保存到 localStorage
+    localStorage.setItem('refreshInterval', refreshInterval);
+    localStorage.setItem('terminalFontSize', terminalFontSize);
+    
+    // 应用设置
+    applySettings();
+    
+    alert('设置已保存');
+}
+
+// 应用设置
+function applySettings() {
+    const refreshInterval = localStorage.getItem('refreshInterval') || '2';
+    const terminalFontSize = localStorage.getItem('terminalFontSize') || '14';
+    
+    // 更新界面
+    document.getElementById('refresh-interval').value = refreshInterval;
+    document.getElementById('terminal-font-size').value = terminalFontSize;
+    
+    // 应用仪表板刷新间隔
+    if (dashboardInterval) {
+        clearInterval(dashboardInterval);
+        dashboardInterval = setInterval(updateDashboard, parseInt(refreshInterval) * 1000);
+    }
+    
+    // 应用终端字体大小
+    if (term) {
+        term.options.fontSize = parseInt(terminalFontSize);
+        if (fitAddon) {
+            fitAddon.fit();
+        }
+    }
+}
+
+// 加载系统信息
+async function loadSystemInfo() {
+    try {
+        const response = await fetch('/api/system/info');
+        const data = await response.json();
+        
+        // 这里可以获取主机名等信息
+        // 由于系统信息API不包含这些，显示占位符
+        document.getElementById('hostname').textContent = 'raspberrypi';
+        document.getElementById('os-info').textContent = 'Raspberry Pi OS';
+        document.getElementById('kernel').textContent = 'Linux';
+        document.getElementById('python-version').textContent = 'Python 3.x';
+        
+    } catch (error) {
+        console.error('加载系统信息失败:', error);
+    }
+}
+
 // ==================== 初始化 ====================
 
 // 页面加载完成后启动仪表板更新
 document.addEventListener('DOMContentLoaded', () => {
     startDashboardUpdates();
+    applySettings();
 });
