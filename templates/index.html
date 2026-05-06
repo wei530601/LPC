@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pi Panel - 树莓派控制面板</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app">
+        <!-- 侧边栏 -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <h1>🥧 Pi Panel</h1>
+            </div>
+            
+            <ul class="nav-menu">
+                <li class="nav-item active" data-page="dashboard">
+                    <span class="icon">📊</span>
+                    <span>仪表板</span>
+                </li>
+                <li class="nav-item" data-page="services">
+                    <span class="icon">⚙️</span>
+                    <span>服务管理</span>
+                </li>
+                <li class="nav-item" data-page="terminal">
+                    <span class="icon">💻</span>
+                    <span>终端</span>
+                </li>
+                <li class="nav-item" data-page="files">
+                    <span class="icon">📁</span>
+                    <span>文件管理</span>
+                </li>
+            </ul>
+            
+            <div class="sidebar-footer">
+                <a href="/logout" class="logout-btn">退出登录</a>
+            </div>
+        </nav>
+
+        <!-- 主内容区域 -->
+        <main class="main-content">
+            <!-- 仪表板页面 -->
+            <div class="page active" id="dashboard">
+                <div class="page-header">
+                    <h2>系统监控</h2>
+                    <div class="uptime">运行时间: <span id="uptime">-</span></div>
+                </div>
+
+                <div class="dashboard-grid">
+                    <!-- CPU 使用率 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>CPU 使用率</h3>
+                            <span class="badge" id="cpu-avg">0%</span>
+                        </div>
+                        <div class="card-body">
+                            <div id="cpu-cores"></div>
+                        </div>
+                    </div>
+
+                    <!-- 内存 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>内存使用</h3>
+                            <span class="badge" id="mem-percent">0%</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="mem-bar"></div>
+                            </div>
+                            <div class="stats">
+                                <span id="mem-used">0 MB</span> / <span id="mem-total">0 MB</span>
+                            </div>
+                            <div class="swap-info">
+                                <small>Swap: <span id="swap-used">0 MB</span> / <span id="swap-total">0 MB</span></small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 磁盘 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>磁盘使用</h3>
+                        </div>
+                        <div class="card-body">
+                            <div id="disk-list"></div>
+                        </div>
+                    </div>
+
+                    <!-- 温度 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>系统温度</h3>
+                        </div>
+                        <div class="card-body">
+                            <div id="temperature-list"></div>
+                        </div>
+                    </div>
+
+                    <!-- 网络 -->
+                    <div class="card card-wide">
+                        <div class="card-header">
+                            <h3>网络流量</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="network-stats">
+                                <div class="network-item">
+                                    <div class="network-label">↑ 上传</div>
+                                    <div class="network-value" id="net-sent">0 MB/s</div>
+                                </div>
+                                <div class="network-item">
+                                    <div class="network-label">↓ 下载</div>
+                                    <div class="network-value" id="net-recv">0 MB/s</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 服务管理页面 -->
+            <div class="page" id="services">
+                <div class="page-header">
+                    <h2>服务管理</h2>
+                    <button class="btn btn-primary" onclick="loadServices()">刷新</button>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <div class="search-box">
+                            <input type="text" id="service-search" placeholder="搜索服务...">
+                        </div>
+                        <div class="table-container">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>服务名称</th>
+                                        <th>状态</th>
+                                        <th>加载</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="services-list"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 终端页面 -->
+            <div class="page" id="terminal">
+                <div class="page-header">
+                    <h2>Web 终端</h2>
+                </div>
+
+                <div class="card terminal-card">
+                    <div id="terminal-container"></div>
+                </div>
+            </div>
+
+            <!-- 文件管理页面 -->
+            <div class="page" id="files">
+                <div class="page-header">
+                    <h2>文件管理</h2>
+                    <div class="file-actions">
+                        <button class="btn btn-sm" onclick="createFolder()">新建文件夹</button>
+                        <button class="btn btn-sm" onclick="createFile()">新建文件</button>
+                        <button class="btn btn-sm" onclick="uploadFile()">上传</button>
+                    </div>
+                </div>
+
+                <div class="file-manager">
+                    <div class="breadcrumb" id="breadcrumb"></div>
+                    
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="file-list" id="file-list"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 文件编辑器模态框 -->
+    <div class="modal" id="editor-modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>编辑文件: <span id="editor-filename"></span></h3>
+                <button class="modal-close" onclick="closeEditor()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <textarea id="file-editor"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeEditor()">取消</button>
+                <button class="btn btn-primary" onclick="saveFile()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.6.1/dist/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+    <script src="/static/app.js"></script>
+</body>
+</html>
