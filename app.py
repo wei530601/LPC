@@ -31,6 +31,15 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
+# 处理API请求的未授权情况
+@login_manager.unauthorized_handler
+def unauthorized():
+    # 如果是API请求，返回JSON而不是重定向
+    if request.path.startswith('/api/'):
+        return jsonify({'success': False, 'error': '未授权，请先登录'}), 401
+    # 其他请求重定向到登录页面
+    return redirect(url_for('login'))
+
 file_manager = FileManager(Config.FILE_ROOT)
 
 # 告警阈值配置

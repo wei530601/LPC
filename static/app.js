@@ -1,3 +1,38 @@
+// ==================== API 调用辅助函数 ====================
+
+/**
+ * 包装fetch调用，统一处理401未授权错误和非JSON响应
+ * @param {string} url - API端点URL
+ * @param {Object} options - fetch选项
+ * @returns {Promise} - 返回解析后的JSON数据
+ */
+async function apiCall(url, options = {}) {
+    try {
+        const response = await fetch(url, options);
+        
+        // 检查是否未授权
+        if (response.status === 401) {
+            console.error('会话已过期，即将跳转到登录页');
+            alert('会话已过期，请重新登录');
+            setTimeout(() => {
+                window.location.href = '/login';
+            }, 1000);
+            throw new Error('未授权，请重新登录');
+        }
+        
+        // 检查响应类型
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            throw new Error('服务器返回了非JSON响应');
+        }
+        
+        return await response.json();
+    } catch (error) {
+        // 如果是网络错误或其他错误，重新抛出
+        throw error;
+    }
+}
+
 // ==================== 折叠面板功能 ====================
 
 function toggleCollapse(header) {
@@ -757,8 +792,7 @@ async function checkForUpdates() {
     try {
         document.getElementById('update-status').textContent = '检查中...';
         
-        const response = await fetch('/api/update/check');
-        const data = await response.json();
+        const data = await apiCall('/api/update/check');
         
         if (data.success) {
             const versionEl = document.getElementById('current-version');
@@ -788,7 +822,7 @@ async function checkForUpdates() {
         }
     } catch (error) {
         document.getElementById('update-status').textContent = '检查失败';
-        showUpdateMessage('检查更新失败: ' + error.message, 'error');
+        showUpdateMessage('更新失败: ' + error.message, 'error');
     }
 }
 
