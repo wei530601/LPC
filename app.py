@@ -581,6 +581,13 @@ def upload_file():
 # ============ WebSocket 终端 ============
 
 def set_winsize(fd, row, col, xpix=0, ypix=0):
+    """设置终端窗口大小 - 确保所有参数都是整数"""
+    # 转换为整数，防止 struct.pack 类型错误
+    row = int(row) if row else 24
+    col = int(col) if col else 80
+    xpix = int(xpix) if xpix else 0
+    ypix = int(ypix) if ypix else 0
+    
     winsize = struct.pack("HHHH", row, col, xpix, ypix)
     fcntl.ioctl(fd, termios.TIOCSWINSZ, winsize)
 
@@ -638,7 +645,10 @@ def start_terminal(data):
             'fd': fd
         }
         
-        set_winsize(fd, data.get('rows', 24), data.get('cols', 80))
+        # 确保 rows 和 cols 是整数
+        rows = int(data.get('rows', 24))
+        cols = int(data.get('cols', 80))
+        set_winsize(fd, rows, cols)
         
         # 使用 threading 模块启动后台任务
         thread = threading.Thread(target=read_and_forward_pty_output, args=(fd, sid))
@@ -670,7 +680,10 @@ def terminal_resize(data):
     
     if sid in terminals:
         fd = terminals[sid]['fd']
-        set_winsize(fd, data['rows'], data['cols'])
+        # 确保 rows 和 cols 是整数
+        rows = int(data.get('rows', 24))
+        cols = int(data.get('cols', 80))
+        set_winsize(fd, rows, cols)
 
 @socketio.on('disconnect', namespace='/terminal')
 def terminal_disconnect():
