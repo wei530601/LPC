@@ -14,6 +14,8 @@ document.querySelectorAll('.nav-item').forEach(item => {
             startDashboardUpdates();
         } else if (page === 'services') {
             loadServices();
+        } else if (page === 'docker') {
+            loadDockerData();
         } else if (page === 'terminal') {
             initTerminal();
         } else if (page === 'files') {
@@ -1118,6 +1120,280 @@ async function loadNetworkChart() {
         }
     } catch (error) {
         console.error('加载网络图表失败:', error);
+    }
+}
+
+// ==================== Docker 管理功能 ====================
+
+// 加载 Docker 数据
+async function loadDockerData() {
+    // 检查 Docker 是否安装
+    const checkResponse = await fetch('/api/docker/check');
+    const checkData = await checkResponse.json();
+    
+    if (!checkData.installed) {
+        document.getElementById('docker-not-installed').style.display = 'block';
+        document.getElementById('docker-content').style.display = 'none';
+        return;
+    }
+    
+    document.getElementById('docker-not-installed').style.display = 'none';
+    document.getElementById('docker-content').style.display = 'block';
+    
+    // 加载 Docker 信息
+    await loadDockerInfo();
+    await loadDockerContainers();
+    await loadDockerImages();
+}
+
+// 加载 Docker 系统信息
+async function loadDockerInfo() {
+    try {
+        const response = await fetch('/api/docker/info');
+        const data = await response.json();
+        
+        if (data.success) {
+            const info = data.info;
+            document.getElementById('docker-containers-total').textContent = info.containers || 0;
+            document.getElementById('docker-containers-running').textContent = info.running || 0;
+            document.getElementById('docker-containers-stopped').textContent = info.stopped || 0;
+            document.getElementById('docker-images-total').textContent = info.images || 0;
+        }
+    } catch (error) {
+        console.error('加载 Docker 信息失败:', error);
+    }
+}
+
+// 加载容器列表
+async function loadDockerContainers() {
+    try {
+        const showAll = document.getElementById('show-all-containers').checked;
+        const response = await fetch(`/api/docker/containers?all=${showAll}`);
+        const data = await response.json();
+        
+        const tbody = document.getElementById('docker-containers-list');
+        tbody.innerHTML = '';
+        
+        if (data.success && data.containers.length > 0) {
+            data.containers.forEach(container => {
+                const row = document.createElement('tr');
+                const isRunning = container.state.toLowerCase() === 'running';
+                
+                row.innerHTML = `
+                    <td>${container.name}</td>
+                    <td>${container.image}</td>
+                    <td>
+                        <span class="status-badge ${isRunning ? 'status-running' : 'status-stopped'}">
+                            ${container.status}
+                        </span>
+                    </td>
+                    <td>${container.ports || '-'}</td>
+                    <td>
+                        <div class="btn-group">
+                            ${isRunning ? 
+                                `<button class="btn btn-sm btn-warning" onclick="controlDockerContainer('${container.id}', 'stop')">停止</button>
+                                 <button class="btn btn-sm" onclick="viewContainerLogs('${container.id}')">日志</button>` :
+                                `<button class="btn btn-sm btn-primary" onclick="controlDockerContainer('${container.id}', 'start')">启动</button>`
+                            }
+                            <button class="btn btn-sm btn-warning" onclick="controlDockerContainer('${container.id}', 'restart')">重启</button>
+                            <button class="btn btn-sm btn-danger" onclick="controlDockerContainer('${container.id}', 'rm')">删除</button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        } else {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: rgba(255,255,255,0.5);">暂无容器</td></tr>';
+        }
+    } catch (error) {
+        console.error('加载容器列表失败:', error);
+        document.getElementById('docker-containers-list').innerHTML = 
+            '<tr><td colspan="5" style="text-align: center; color: #f44336;">加载失败</td></tr>';
+    }
+}
+
+// 加载镜像列表
+async function loadDockerImages() {
+    try {
+        const response = await fetch('/api/docker/images');
+        const data = await response.json();
+        
+        const tbody = document.getElementById('docker-images-list');
+        tbody.innerHTML = '';
+        
+        if (data.success && data.images.length > 0) {
+            data.images.forEach(image => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${image.repository}</td>
+                    <td>${image.tag}</td>
+                    <td>${image.size}</td>
+                    <td>${image.created}</td>
+                    <td>
+                        <button class="btn btn-sm btn-danger" onclick="removeDockerImage('${image.id}')">删除</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        } else {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: rgba(255,255,255,0.5);">暂无镜像</td></tr>';
+        }
+    } catch (error) {
+        console.error('加载镜像列表失败:', error);
+        document.getElementById('docker-images-list').innerHTML = 
+            '<tr><td colspan="5" style="text-align: center; color: #f44336;">加载失败</td></tr>';
+    }
+}
+
+// 控制容器
+async function controlDockerContainer(containerId, action) {
+    const actionMap = {
+        'start': '启动',
+        'stop': '停止',
+        'restart': '重启',
+        'rm': '删除'
+    };
+    
+    if (action === 'rm' && !confirm(`确定要删除容器 ${containerId.substring(0, 12)} 吗？`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/docker/containers/${containerId}/${action}`, {
+            method: 'POST'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(`容器${actionMap[action]}成功`);
+            loadDockerData();
+        } else {
+            alert(`容器${actionMap[action]}失败: ${data.error}`);
+        }
+    } catch (error) {
+        alert(`操作失败: ${error.message}`);
+    }
+}
+
+// 查看容器日志
+async function viewContainerLogs(containerId) {
+    try {
+        const response = await fetch(`/api/docker/containers/${containerId}/logs?lines=200`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const logWindow = window.open('', '_blank', 'width=800,height=600');
+            logWindow.document.write(`
+                <html>
+                <head>
+                    <title>容器日志 - ${containerId.substring(0, 12)}</title>
+                    <style>
+                        body { 
+                            background: #1a1a1a; 
+                            color: #fff; 
+                            font-family: 'Courier New', monospace; 
+                            padding: 20px;
+                            margin: 0;
+                        }
+                        pre { 
+                            white-space: pre-wrap; 
+                            word-wrap: break-word;
+                            font-size: 12px;
+                            line-height: 1.5;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <h2>容器日志: ${containerId.substring(0, 12)}</h2>
+                    <pre>${data.logs}</pre>
+                </body>
+                </html>
+            `);
+        } else {
+            alert('获取日志失败: ' + data.error);
+        }
+    } catch (error) {
+        alert('获取日志失败: ' + error.message);
+    }
+}
+
+// 删除镜像
+async function removeDockerImage(imageId) {
+    if (!confirm(`确定要删除镜像 ${imageId} 吗？`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/docker/images/${imageId}`, {
+            method: 'DELETE'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('镜像删除成功');
+            loadDockerData();
+        } else {
+            alert('镜像删除失败: ' + data.error);
+        }
+    } catch (error) {
+        alert('删除失败: ' + error.message);
+    }
+}
+
+// 显示拉取镜像对话框
+function showPullImageDialog() {
+    const imageName = prompt('请输入要拉取的镜像名称\n例如: nginx:latest, mysql:8.0');
+    
+    if (imageName) {
+        pullDockerImage(imageName);
+    }
+}
+
+// 拉取镜像
+async function pullDockerImage(imageName) {
+    try {
+        alert('正在拉取镜像，请稍候...');
+        
+        const response = await fetch('/api/docker/images/pull', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ image: imageName })
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('镜像拉取成功！');
+            loadDockerData();
+        } else {
+            alert('镜像拉取失败: ' + data.error);
+        }
+    } catch (error) {
+        alert('拉取失败: ' + error.message);
+    }
+}
+
+// 清理 Docker 资源
+async function pruneDocker() {
+    if (!confirm('确定要清理未使用的 Docker 资源吗？\n这将删除:\n- 停止的容器\n- 未使用的网络\n- 悬空的镜像\n- 构建缓存')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/docker/system/prune', {
+            method: 'POST'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('清理完成！\n' + data.output);
+            loadDockerData();
+        } else {
+            alert('清理失败: ' + data.error);
+        }
+    } catch (error) {
+        alert('清理失败: ' + error.message);
     }
 }
 

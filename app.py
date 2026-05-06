@@ -18,6 +18,7 @@ from file_manager import FileManager
 from service_manager import ServiceManager
 from system_control import SystemControl
 from history_data import HistoryData
+from docker_manager import DockerManager
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -190,13 +191,18 @@ def check_alerts():
     system_info = SystemInfo.get_all()
     alerts = []
     
-    # 检查CPU
-    cpu_percent = system_info.get('cpu', {}).get('percent', 0)
+    # 检查CPU - 处理 percpu=True 返回的列表
+    cpu_data = system_info.get('cpu', {}).get('percent', [])
+    if isinstance(cpu_data, list):
+        cpu_percent = sum(cpu_data) / len(cpu_data) if cpu_data else 0
+    else:
+        cpu_percent = cpu_data
+    
     if cpu_percent > ALERT_THRESHOLDS['cpu']:
         alerts.append({
             'type': 'cpu',
             'level': 'warning',
-            'message': f'CPU使用率过高: {cpu_percent}%'
+            'message': f'CPU使用率过高: {cpu_percent:.1f}%'
         })
     
     # 检查内存
@@ -345,6 +351,74 @@ def get_service_status(service_name):
 @login_required
 def control_service(service_name, action):
     return jsonify(ServiceManager.control_service(service_name, action))
+
+# ============ Docker 管理API ============
+
+@app.route('/api/docker/check')
+@login_required
+def check_docker():
+    """检查 Docker 是否已安装"""
+    return jsonify({'installed': DockerManager.is_docker_installed()})
+
+@app.route('/api/docker/info')
+@login_required
+def get_docker_info():
+    """获取 Docker 系统信息"""
+    return jsonify(DockerManager.get_docker_info())
+
+@app.route('/api/docker/containers')
+@login_required
+def get_containers():
+    """获取容器列表"""
+    all_containers = request.args.get('all', 'true').lower() == 'true'
+    return jsonify(DockerManager.get_containers(all_containers))
+
+@app.route('/api/docker/containers/<container_id>/logs')
+@login_required
+def get_container_logs_api(container_id):
+    """获取容器日志"""
+    lines = request.args.get('lines', 100, type=int)
+    return jsonify(DockerManager.get_container_logs(container_id, lines))
+
+@app.route('/api/docker/containers/<container_id>/stats')
+@login_required
+def get_container_stats_api(container_id):
+    """获取容器资源统计"""
+    return jsonify(DockerManager.get_container_stats(container_id))
+
+@app.route('/api/docker/containers/<container_id>/<action>', methods=['POST'])
+@login_required
+def control_container_api(container_id, action):
+    """控制容器"""
+    return jsonify(DockerManager.control_container(container_id, action))
+
+@app.route('/api/docker/images')
+@login_required
+def get_images_api():
+    """获取镜像列表"""
+    return jsonify(DockerManager.get_images())
+
+@app.route('/api/docker/images/<path:image_id>', methods=['DELETE'])
+@login_required
+def remove_image_api(image_id):
+    """删除镜像"""
+    return jsonify(DockerManager.remove_image(image_id))
+
+@app.route('/api/docker/images/pull', methods=['POST'])
+@login_required
+def pull_image_api():
+    """拉取镜像"""
+    data = request.get_json()
+    image_name = data.get('image')
+    if not image_name:
+        return jsonify({'success': False, 'error': '镜像名称不能为空'})
+    return jsonify(DockerManager.pull_image(image_name))
+
+@app.route('/api/docker/system/prune', methods=['POST'])
+@login_required
+def prune_system_api():
+    """清理 Docker 系统"""
+    return jsonify(DockerManager.prune_system())
 
 # ============ 文件管理API ============
 

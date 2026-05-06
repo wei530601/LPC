@@ -749,6 +749,44 @@ body {
     flex-wrap: wrap;
 }
 
+/* Docker 管理页面 */
+.docker-header-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: 600;
+    color: #4CAF50;
+    margin-top: 0.5rem;
+}
+
+.status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.status-running {
+    background: rgba(76, 175, 80, 0.2);
+    color: #4CAF50;
+    border: 1px solid rgba(76, 175, 80, 0.4);
+}
+
+.status-stopped {
+    background: rgba(255, 152, 0, 0.2);
+    color: #FF9800;
+    border: 1px solid rgba(255, 152, 0, 0.4);
+}
+
+.btn-group {
+    display: flex;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+}
+
 /* 系统控制页面 */
 .control-buttons {
     display: flex;
