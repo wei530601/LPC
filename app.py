@@ -16,6 +16,8 @@ from auth import User
 from system_info import SystemInfo
 from file_manager import FileManager
 from service_manager import ServiceManager
+from system_control import SystemControl
+from history_data import HistoryData
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -26,9 +28,36 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'
 
 file_manager = FileManager(Config.FILE_ROOT)
+history_data = HistoryData()
+
+# 告警阈值配置
+ALERT_THRESHOLDS = {
+    'cpu': 90,  # CPU使用率 > 90%
+    'memory': 85,  # 内存使用率 > 85%
+    'disk': 90,  # 磁盘使用率 > 90%
+    'temperature': 80  # 温度 > 80°C
+}
 
 # 存储终端会话
 terminals = {}
+
+# 后台任务：定期记录历史数据
+def background_data_recorder():
+    """后台任务：每分钟记录一次系统数据"""
+    import time
+    while True:
+        try:
+            time.sleep(60)  # 每60秒记录一次
+            system_info = SystemInfo.get_all()
+            history_data.add_record(system_info)
+            history_data.save_data()
+        except Exception as e:
+            print(f"记录历史数据失败: {e}")
+
+# 启动后台任务
+def start_background_tasks():
+    recorder_thread = threading.Thread(target=background_data_recorder, daemon=True)
+    recorder_thread.start()
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -95,6 +124,102 @@ def get_temperature():
 @login_required
 def get_network_info():
     return jsonify(SystemInfo.get_network_info())
+
+# ============ 系统控制API ============
+
+@app.route('/api/control/reboot', methods=['POST'])
+@login_required
+def reboot_system():
+    return jsonify(SystemControl.reboot_system())
+
+@app.route('/api/control/shutdown', methods=['POST'])
+@login_required
+def shutdown_system():
+    return jsonify(SystemControl.shutdown_system())
+
+@app.route('/api/control/uptime')
+@login_required
+def get_uptime():
+    return jsonify(SystemControl.get_uptime())
+
+@app.route('/api/control/logs')
+@login_required
+def get_logs():
+    lines = request.args.get('lines', 100, type=int)
+    service = request.args.get('service', None)
+    return jsonify(SystemControl.get_system_logs(lines, service))
+
+@app.route('/api/control/processes')
+@login_required
+def get_processes():
+    return jsonify(SystemControl.get_processes())
+
+@app.route('/api/control/processes/<int:pid>', methods=['DELETE'])
+@login_required
+def kill_process(pid):
+    return jsonify(SystemControl.kill_process(pid))
+
+# ============ 历史数据API ============
+
+@app.route('/api/history/<metric>')
+@login_required
+def get_history(metric):
+    duration = request.args.get('duration', '1h')
+    records = history_data.get_records(metric, duration)
+    return jsonify({'success': True, 'data': records})
+
+@app.route('/api/history/statistics')
+@login_required
+def get_statistics():
+    duration = request.args.get('duration', '24h')
+    stats = history_data.get_all_statistics(duration)
+    return jsonify({'success': True, 'statistics': stats})
+
+@app.route('/api/alerts/check')
+@login_required
+def check_alerts():
+    """检查是否有告警"""
+    system_info = SystemInfo.get_all()
+    alerts = []
+    
+    # 检查CPU
+    cpu_percent = system_info.get('cpu', {}).get('percent', 0)
+    if cpu_percent > ALERT_THRESHOLDS['cpu']:
+        alerts.append({
+            'type': 'cpu',
+            'level': 'warning',
+            'message': f'CPU使用率过高: {cpu_percent}%'
+        })
+    
+    # 检查内存
+    memory_percent = system_info.get('memory', {}).get('percent', 0)
+    if memory_percent > ALERT_THRESHOLDS['memory']:
+        alerts.append({
+            'type': 'memory',
+            'level': 'warning',
+            'message': f'内存使用率过高: {memory_percent}%'
+        })
+    
+    # 检查磁盘
+    disk_info = system_info.get('disk', [])
+    for disk in disk_info:
+        if disk.get('percent', 0) > ALERT_THRESHOLDS['disk']:
+            alerts.append({
+                'type': 'disk',
+                'level': 'warning',
+                'message': f'磁盘 {disk.get("mount")} 使用率过高: {disk.get("percent")}%'
+            })
+    
+    # 检查温度
+    temperature = system_info.get('temperature', 0)
+    if temperature > ALERT_THRESHOLDS['temperature']:
+        alerts.append({
+            'type': 'temperature',
+            'level': 'warning',
+            'message': f'温度过高: {temperature}°C'
+        })
+    
+    return jsonify({'success': True, 'alerts': alerts})
 
 # ============ 服务管理API ============
 
@@ -301,4 +426,6 @@ def terminal_disconnect():
 
 if __name__ == '__main__':
     os.makedirs('sessions', exist_ok=True)
+    os.makedirs('data', exist_ok=True)
+    start_background_tasks()
     socketio.run(app, host='0.0.0.0', port=5000, debug=False)
