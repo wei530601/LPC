@@ -970,8 +970,8 @@ def start_terminal(data):
         }
         
         # 确保 rows 和 cols 是整数
-        rows = int(data.get('rows', 24))
-        cols = int(data.get('cols', 80))
+        rows = int(data.get('rows') or 24)
+        cols = int(data.get('cols') or 80)
         set_winsize(fd, rows, cols)
         
         # 使用 threading 模块启动后台任务
@@ -1005,8 +1005,8 @@ def terminal_resize(data):
     if sid in terminals:
         fd = terminals[sid]['fd']
         # 确保 rows 和 cols 是整数
-        rows = int(data.get('rows', 24))
-        cols = int(data.get('cols', 80))
+        rows = int(data.get('rows') or 24)
+        cols = int(data.get('cols') or 80)
         set_winsize(fd, rows, cols)
 
 @socketio.on('disconnect', namespace='/terminal')
