@@ -283,25 +283,103 @@ def check_update():
 def pull_update():
     """执行更新"""
     try:
-        # 执行 git pull
-        result = subprocess.run(
+        cwd = os.path.dirname(os.path.abspath(__file__))
+        
+        # 1. 先 stash 本地修改
+        stash_result = subprocess.run(
+            ['git', 'stash'],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=cwd
+        )
+        
+        # 2. 执行 git pull
+        pull_result = subprocess.run(
             ['git', 'pull', 'origin', 'main'],
             capture_output=True,
             text=True,
             timeout=30,
-            cwd=os.path.dirname(os.path.abspath(__file__))
+            cwd=cwd
         )
         
-        if result.returncode == 0:
+        # 3. 恢复 stash（如果有的话）
+        if 'No local changes to save' not in stash_result.stdout:
+            stash_pop_result = subprocess.run(
+                ['git', 'stash', 'pop'],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                cwd=cwd
+            )
+            
+            # 检查是否有冲突
+            if stash_pop_result.returncode != 0:
+                return jsonify({
+                    'success': True,
+                    'message': '更新成功！但本地修改可能有冲突，请检查。',
+                    'output': pull_result.stdout,
+                    'warning': stash_pop_result.stderr
+                })
+        
+        if pull_result.returncode == 0:
             return jsonify({
                 'success': True,
                 'message': '更新成功！请重启服务使更改生效。',
-                'output': result.stdout
+                'output': pull_result.stdout
             })
         else:
             return jsonify({
                 'success': False,
-                'error': result.stderr or result.stdout
+                'error': pull_result.stderr or pull_result.stdout
+            })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/update/force', methods=['POST'])
+@login_required
+def force_update():
+    """强制更新（丢弃本地修改）"""
+    try:
+        cwd = os.path.dirname(os.path.abspath(__file__))
+        
+        # 1. 重置所有本地修改
+        reset_result = subprocess.run(
+            ['git', 'reset', '--hard', 'HEAD'],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=cwd
+        )
+        
+        # 2. 清理未跟踪的文件
+        clean_result = subprocess.run(
+            ['git', 'clean', '-fd'],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=cwd
+        )
+        
+        # 3. 拉取最新代码
+        pull_result = subprocess.run(
+            ['git', 'pull', 'origin', 'main'],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=cwd
+        )
+        
+        if pull_result.returncode == 0:
+            return jsonify({
+                'success': True,
+                'message': '强制更新成功！本地修改已丢弃。请重启服务。',
+                'output': pull_result.stdout
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': pull_result.stderr or pull_result.stdout
             })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})

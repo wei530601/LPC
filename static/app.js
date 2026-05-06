@@ -699,6 +699,7 @@ async function performUpdate() {
     
     try {
         const updateBtn = document.getElementById('update-btn');
+        const forceUpdateBtn = document.getElementById('force-update-btn');
         const restartBtn = document.getElementById('restart-btn');
         
         updateBtn.disabled = true;
@@ -712,20 +713,63 @@ async function performUpdate() {
         if (data.success) {
             showUpdateMessage('更新成功！' + data.message, 'success');
             updateBtn.style.display = 'none';
+            forceUpdateBtn.style.display = 'none';
             restartBtn.style.display = 'inline-block';
             
             // 重新检查版本
             setTimeout(checkForUpdates, 2000);
         } else {
-            showUpdateMessage('更新失败: ' + data.error, 'error');
+            showUpdateMessage('更新失败: ' + data.error + '\n如果有本地修改冲突，请使用"强制更新"', 'error');
             updateBtn.disabled = false;
             updateBtn.textContent = '立即更新';
+            // 显示强制更新按钮
+            forceUpdateBtn.style.display = 'inline-block';
         }
     } catch (error) {
         showUpdateMessage('更新失败: ' + error.message, 'error');
         const updateBtn = document.getElementById('update-btn');
         updateBtn.disabled = false;
         updateBtn.textContent = '立即更新';
+        // 显示强制更新按钮
+        document.getElementById('force-update-btn').style.display = 'inline-block';
+    }
+}
+
+// 强制更新（丢弃本地修改）
+async function forceUpdate() {
+    if (!confirm('⚠️ 警告：强制更新会丢弃所有本地修改！\n\n确定要继续吗？')) return;
+    
+    try {
+        const forceUpdateBtn = document.getElementById('force-update-btn');
+        const updateBtn = document.getElementById('update-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        
+        forceUpdateBtn.disabled = true;
+        forceUpdateBtn.textContent = '强制更新中...';
+        
+        showUpdateMessage('正在重置本地修改并拉取最新代码...', 'warning');
+        
+        const response = await fetch('/api/update/force', { method: 'POST' });
+        const data = await response.json();
+        
+        if (data.success) {
+            showUpdateMessage('强制更新成功！' + data.message, 'success');
+            forceUpdateBtn.style.display = 'none';
+            updateBtn.style.display = 'none';
+            restartBtn.style.display = 'inline-block';
+            
+            // 重新检查版本
+            setTimeout(checkForUpdates, 2000);
+        } else {
+            showUpdateMessage('强制更新失败: ' + data.error, 'error');
+            forceUpdateBtn.disabled = false;
+            forceUpdateBtn.textContent = '强制更新';
+        }
+    } catch (error) {
+        showUpdateMessage('强制更新失败: ' + error.message, 'error');
+        const forceUpdateBtn = document.getElementById('force-update-btn');
+        forceUpdateBtn.disabled = false;
+        forceUpdateBtn.textContent = '强制更新';
     }
 }
 

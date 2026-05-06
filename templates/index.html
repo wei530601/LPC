@@ -605,7 +605,11 @@
                                 <div class="update-buttons">
                                     <button class="btn btn-primary" onclick="checkForUpdates()">检查更新</button>
                                     <button class="btn btn-warning" id="update-btn" onclick="performUpdate()" style="display: none;">立即更新</button>
+                                    <button class="btn btn-danger" id="force-update-btn" onclick="forceUpdate()" style="display: none;">强制更新</button>
                                     <button class="btn btn-danger" id="restart-btn" onclick="restartApp()" style="display: none;">重启应用</button>
+                                </div>
+                                <div style="margin-top: 1rem; font-size: 0.85rem; color: rgba(255,255,255,0.5);">
+                                    <strong>提示：</strong>如果普通更新失败，请使用"强制更新"（会丢弃本地修改）
                                 </div>
                             </div>
                         </div>
