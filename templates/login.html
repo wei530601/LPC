@@ -11,6 +11,7 @@
             box-sizing: border-box;
         }
 
+        /* 深色主题（默认） */
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -18,6 +19,7 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
+            transition: background 0.3s ease;
         }
 
         .login-container {
@@ -27,11 +29,18 @@
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             width: 100%;
             max-width: 400px;
+            transition: all 0.3s ease;
         }
 
         .logo {
             text-align: center;
             margin-bottom: 2rem;
+        }
+
+        .logo-icon-large {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 1rem;
         }
 
         .logo h1 {
@@ -63,6 +72,8 @@
             border-radius: 6px;
             font-size: 1rem;
             transition: border-color 0.3s;
+            background: #fff;
+            color: #333;
         }
 
         input:focus {
@@ -73,18 +84,19 @@
         button {
             width: 100%;
             padding: 0.75rem;
-            background: #667eea;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
             border-radius: 6px;
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
-            transition: background 0.3s;
+            transition: all 0.3s;
         }
 
         button:hover {
-            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
         }
 
         .error {
@@ -97,6 +109,52 @@
 
         .error.show {
             display: block;
+        }
+
+        /* 浅色主题 */
+        body.light-theme {
+            background: #e9ecef;
+        }
+
+        body.light-theme .login-container {
+            background: #ffffff;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            border: 1px solid #ddd;
+        }
+
+        body.light-theme .logo h1 {
+            color: #667eea;
+        }
+
+        body.light-theme .logo p {
+            color: #666;
+        }
+
+        body.light-theme label {
+            color: #333;
+        }
+
+        body.light-theme input {
+            background: #f8f9fa;
+            border-color: #dee2e6;
+            color: #333;
+        }
+
+        body.light-theme input:focus {
+            background: #fff;
+            border-color: #667eea;
+        }
+
+        body.light-theme button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        body.light-theme button:hover {
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        body.light-theme .error {
+            color: #dc3545;
         }
     </style>
 </head>
