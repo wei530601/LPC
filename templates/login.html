@@ -126,6 +126,14 @@
     </div>
 
     <script>
+        // 加载主题
+        (function() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            if (savedTheme === 'light') {
+                document.body.className = 'light-theme';
+            }
+        })();
+
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             

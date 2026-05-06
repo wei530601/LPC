@@ -1784,6 +1784,48 @@ body.light-theme .form-row select {
     color: #333;
 }
 
+/* 登录页面浅色主题 */
+body.light-theme .login-container {
+    background: #ffffff;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+}
+
+body.light-theme .logo h1 {
+    color: #667eea;
+}
+
+body.light-theme .logo p {
+    color: #666;
+}
+
+body.light-theme label {
+    color: #333;
+}
+
+body.light-theme input {
+    background: #f8f9fa;
+    border: 2px solid #ddd;
+    color: #333;
+}
+
+body.light-theme input:focus {
+    border-color: #667eea;
+    background: #ffffff;
+}
+
+body.light-theme button {
+    background: #667eea;
+    color: white;
+}
+
+body.light-theme button:hover {
+    background: #5568d3;
+}
+
+body.light-theme .error {
+    color: #e74c3c;
+}
+
 /* 改进输入框 */
 input[type="text"],
 input[type="password"],
