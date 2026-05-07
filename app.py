@@ -87,9 +87,23 @@ def logout():
 def index():
     return render_template('index.html')
 
-# ============ 系统信息API ============
+# SPA 路由：所有前端页面路径均返回主页面（支持直接访问和浏览器刷新）
+@app.route('/home')
+@app.route('/services')
+@app.route('/docker')
+@app.route('/packages')
+@app.route('/users')
+@app.route('/control')
+@app.route('/network')
+@app.route('/performance')
+@app.route('/terminal')
+@app.route('/files')
+@app.route('/settings')
+@login_required
+def spa_page():
+    return render_template('index.html')
 
-@app.route('/api/system/info')
+# ============ 系统信息API ============
 @login_required
 def get_system_info():
     return jsonify(SystemInfo.get_all())

@@ -82,51 +82,98 @@ function loadTheme() {
     }
 }
 
-// 页面加载时应用主题
+// 页面加载时应用主题并根据URL初始化页面
 document.addEventListener('DOMContentLoaded', function() {
     loadTheme();
+    initPageFromURL();
 });
 
 // ==================== 页面切换 ====================
 
-// 页面切换
+// 页面名称映射（用于URL路径）
+const PAGE_PATHS = {
+    dashboard:   '/home',
+    services:    '/services',
+    docker:      '/docker',
+    packages:    '/packages',
+    users:       '/users',
+    control:     '/control',
+    network:     '/network',
+    performance: '/performance',
+    terminal:    '/terminal',
+    files:       '/files',
+    settings:    '/settings'
+};
+
+// 路径到页面ID的反向映射
+const PATH_PAGES = Object.fromEntries(
+    Object.entries(PAGE_PATHS).map(([k, v]) => [v, k])
+);
+
+// 执行页面切换（不更新历史，供内部调用）
+function switchToPage(page) {
+    if (!document.getElementById(page)) return;
+
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+
+    const navItem = document.querySelector(`.nav-item[data-page="${page}"]`);
+    if (navItem) navItem.classList.add('active');
+    document.getElementById(page).classList.add('active');
+
+    // 页面切换时的初始化
+    if (page === 'dashboard') {
+        startDashboardUpdates();
+    } else if (page === 'services') {
+        loadServices();
+    } else if (page === 'docker') {
+        loadDockerData();
+    } else if (page === 'packages') {
+        loadPackages();
+    } else if (page === 'users') {
+        loadUsers();
+    } else if (page === 'terminal') {
+        initTerminal();
+    } else if (page === 'files') {
+        loadFiles('/');
+    } else if (page === 'settings') {
+        loadSystemInfo();
+        applySettings();
+    } else if (page === 'control') {
+        loadSystemControl();
+    } else if (page === 'network') {
+        loadNetworkPage();
+    } else if (page === 'performance') {
+        loadPerformancePage();
+    }
+}
+
+// 导航点击：切换页面并更新URL
 document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', () => {
         const page = item.dataset.page;
-        
-        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        
-        item.classList.add('active');
-        document.getElementById(page).classList.add('active');
-        
-        // 页面切换时的初始化
-        if (page === 'dashboard') {
-            startDashboardUpdates();
-        } else if (page === 'services') {
-            loadServices();
-        } else if (page === 'docker') {
-            loadDockerData();
-        } else if (page === 'packages') {
-            loadPackages();
-        } else if (page === 'users') {
-            loadUsers();
-        } else if (page === 'terminal') {
-            initTerminal();
-        } else if (page === 'files') {
-            loadFiles('/');
-        } else if (page === 'settings') {
-            loadSystemInfo();
-            applySettings();
-        } else if (page === 'control') {
-            loadSystemControl();
-        } else if (page === 'network') {
-            loadNetworkPage();
-        } else if (page === 'performance') {
-            loadPerformancePage();
-        }
+        const path = PAGE_PATHS[page] || '/' + page;
+        history.pushState({ page }, '', path);
+        switchToPage(page);
     });
 });
+
+// 浏览器前进/后退
+window.addEventListener('popstate', (e) => {
+    const page = (e.state && e.state.page)
+        ? e.state.page
+        : (PATH_PAGES[location.pathname] || 'dashboard');
+    switchToPage(page);
+});
+
+// 根据当前URL路径初始化对应页面
+function initPageFromURL() {
+    const path = location.pathname;
+    const page = PATH_PAGES[path] || 'dashboard';
+    // 将初始状态压入历史记录
+    history.replaceState({ page }, '', PAGE_PATHS[page] || '/home');
+    switchToPage(page);
+}
 
 // ==================== 仪表板 ====================
 
