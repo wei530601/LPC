@@ -104,6 +104,7 @@ const PAGE_PATHS = {
     performance: '/performance',
     terminal:    '/terminal',
     files:       '/files',
+    panelUsers:  '/panel-users',
     settings:    '/settings'
 };
 
@@ -138,8 +139,11 @@ function switchToPage(page) {
         initTerminal();
     } else if (page === 'files') {
         initFilesPage();
+    } else if (page === 'panelUsers') {
+        loadPanelUsersPage();
     } else if (page === 'settings') {
         loadSystemInfo();
+        loadCurrentUserInfo();
         applySettings();
     } else if (page === 'control') {
         loadSystemControl();
@@ -789,30 +793,196 @@ function uploadFile() {
 
 // ==================== 设置功能 ====================
 
+let panelUsersLoaded = false;
+let currentPanelUser = null;
+
+async function loadCurrentUserInfo() {
+    try {
+        const data = await apiCall('/api/auth/me');
+        if (!data.success) return;
+
+        currentPanelUser = data.user;
+        const currentUserInput = document.getElementById('current-username');
+        if (currentUserInput) {
+            const role = data.user.is_admin ? '管理员' : '普通用户';
+            currentUserInput.value = `${data.user.username} (${role})`;
+        }
+    } catch (error) {
+        console.error('加载当前用户失败:', error);
+    }
+}
+
+async function loadPanelUsersPage() {
+    await loadCurrentUserInfo();
+    await loadPanelUsers();
+}
+
+async function loadPanelUsers() {
+    const tipEl = document.getElementById('panel-users-tip');
+    const tbody = document.getElementById('panel-users-table-body');
+    if (!tipEl || !tbody) return;
+
+    try {
+        const data = await apiCall('/api/panel-users');
+        if (!data.success) {
+            tipEl.textContent = data.error || '加载失败';
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:1rem;">暂无数据</td></tr>';
+            return;
+        }
+
+        panelUsersLoaded = true;
+        tipEl.textContent = `共 ${data.users.length} 个面板用户`;
+
+        if (data.users.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:1rem;">暂无用户</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = data.users.map(user => {
+            const role = user.is_admin ? '管理员' : '普通用户';
+            const createdAt = user.created_at ? new Date(user.created_at).toLocaleString() : '-';
+            const canDelete = currentPanelUser && currentPanelUser.username !== user.username;
+            const deleteBtn = canDelete
+                ? `<button class="btn btn-sm btn-danger" onclick="deletePanelUser('${user.username}')">删除</button>`
+                : '';
+
+            return `
+                <tr>
+                    <td><strong>${user.username}</strong></td>
+                    <td>${role}</td>
+                    <td>${createdAt}</td>
+                    <td>
+                        <div class="btn-group">
+                            <button class="btn btn-sm" onclick="resetPanelUserPassword('${user.username}')">重置密码</button>
+                            ${deleteBtn}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    } catch (error) {
+        tipEl.textContent = '加载失败: ' + error.message;
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:1rem;">加载失败</td></tr>';
+    }
+}
+
+async function showAddPanelUserDialog() {
+    await loadCurrentUserInfo();
+    if (!currentPanelUser || !currentPanelUser.is_admin) {
+        showMessage('仅管理员可添加用户', 'warning');
+        return;
+    }
+
+    const username = prompt('请输入新用户名（3-32位，字母/数字/下划线）:');
+    if (!username) return;
+
+    const password = prompt('请输入初始密码（至少6位）:');
+    if (!password) return;
+
+    const asAdmin = confirm('是否设为管理员账号？');
+
+    try {
+        const data = await apiCall('/api/panel-users/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: username.trim(), password, is_admin: asAdmin })
+        });
+
+        if (data.success) {
+            showMessage('添加用户成功', 'success');
+            loadPanelUsers();
+        } else {
+            showMessage(data.error || '添加失败', 'error');
+        }
+    } catch (error) {
+        showMessage('添加失败: ' + error.message, 'error');
+    }
+}
+
+async function deletePanelUser(username) {
+    if (!confirm(`确定删除面板用户 ${username} 吗？`)) return;
+
+    try {
+        const data = await apiCall('/api/panel-users/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username })
+        });
+
+        if (data.success) {
+            showMessage('删除成功', 'success');
+            loadPanelUsers();
+        } else {
+            showMessage(data.error || '删除失败', 'error');
+        }
+    } catch (error) {
+        showMessage('删除失败: ' + error.message, 'error');
+    }
+}
+
+async function resetPanelUserPassword(username) {
+    const password = prompt(`请输入 ${username} 的新密码（至少6位）:`);
+    if (!password) return;
+
+    try {
+        const data = await apiCall('/api/panel-users/password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+
+        if (data.success) {
+            showMessage('密码重置成功', 'success');
+        } else {
+            showMessage(data.error || '重置失败', 'error');
+        }
+    } catch (error) {
+        showMessage('重置失败: ' + error.message, 'error');
+    }
+}
+
 // 修改密码
-function changePassword() {
+async function changePassword() {
+    const currentPassword = document.getElementById('current-password').value;
     const newPassword = document.getElementById('new-password').value;
     const confirmPassword = document.getElementById('confirm-password').value;
-    
-    if (!newPassword || !confirmPassword) {
-        alert('请输入密码');
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+        alert('请填写完整密码信息');
         return;
     }
-    
+
     if (newPassword !== confirmPassword) {
-        alert('两次输入的密码不一致');
+        alert('两次输入的新密码不一致');
         return;
     }
-    
+
     if (newPassword.length < 6) {
         alert('密码长度至少6位');
         return;
     }
-    
-    alert('密码修改功能需要在 config.py 中手动修改\n\n当前默认密码在配置文件中设置:\nDEFAULT_PASSWORD = "' + newPassword + '"\n\n修改后重启服务生效。');
-    
-    document.getElementById('new-password').value = '';
-    document.getElementById('confirm-password').value = '';
+
+    try {
+        const data = await apiCall('/api/panel-users/change-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                current_password: currentPassword,
+                new_password: newPassword
+            })
+        });
+
+        if (data.success) {
+            showMessage('密码修改成功', 'success');
+            document.getElementById('current-password').value = '';
+            document.getElementById('new-password').value = '';
+            document.getElementById('confirm-password').value = '';
+        } else {
+            showMessage(data.error || '修改失败', 'error');
+        }
+    } catch (error) {
+        showMessage('修改失败: ' + error.message, 'error');
+    }
 }
 
 // 保存界面设置

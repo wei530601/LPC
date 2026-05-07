@@ -1,0 +1,35 @@
+            <!-- 面板用户页面 -->
+            <div class="page" id="panelUsers">
+                <div class="page-header">
+                    <h2>面板用户管理</h2>
+                    <div class="user-header-buttons">
+                        <button class="btn btn-primary" onclick="showAddPanelUserDialog()">添加面板用户</button>
+                        <button class="btn" onclick="loadPanelUsers()">刷新</button>
+                    </div>
+                </div>
+
+                <div class="card-group">
+                    <div class="collapsible-header active" onclick="toggleCollapse(this)">
+                        <div class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            <span>账号列表</span>
+                        </div>
+                    </div>
+                    <div class="collapsible-content active">
+                        <div class="collapsible-body">
+                            <div id="panel-users-tip" class="stats" style="margin-bottom: 1rem;"></div>
+                            <table class="modern-table">
+                                <thead>
+                                    <tr>
+                                        <th>用户名</th>
+                                        <th>角色</th>
+                                        <th>创建时间</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="panel-users-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>

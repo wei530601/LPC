@@ -12,7 +12,7 @@ import shlex
 import threading
 
 from config import Config
-from auth import User
+from auth import User, PanelUserStore
 from system_info import SystemInfo
 from file_manager import FileManager
 from service_manager import ServiceManager
@@ -80,6 +80,87 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
+@app.route('/api/auth/me')
+@login_required
+def auth_me():
+    return jsonify({
+        'success': True,
+        'user': {
+            'username': current_user.username,
+            'is_admin': bool(getattr(current_user, 'is_admin', False))
+        }
+    })
+
+@app.route('/api/panel-users')
+@login_required
+def list_panel_users():
+    if not getattr(current_user, 'is_admin', False):
+        return jsonify({'success': False, 'error': '仅管理员可查看用户列表'}), 403
+    return jsonify({'success': True, 'users': PanelUserStore.list_users()})
+
+@app.route('/api/panel-users/add', methods=['POST'])
+@login_required
+def add_panel_user():
+    if not getattr(current_user, 'is_admin', False):
+        return jsonify({'success': False, 'error': '仅管理员可添加用户'}), 403
+
+    data = request.get_json() or {}
+    username = (data.get('username') or '').strip()
+    password = data.get('password') or ''
+    is_admin = bool(data.get('is_admin', False))
+
+    result = PanelUserStore.add_user(username, password, is_admin)
+    status_code = 200 if result.get('success') else 400
+    return jsonify(result), status_code
+
+@app.route('/api/panel-users/delete', methods=['POST'])
+@login_required
+def delete_panel_user():
+    if not getattr(current_user, 'is_admin', False):
+        return jsonify({'success': False, 'error': '仅管理员可删除用户'}), 403
+
+    data = request.get_json() or {}
+    username = (data.get('username') or '').strip()
+    if not username:
+        return jsonify({'success': False, 'error': '未指定用户名'}), 400
+
+    if username == current_user.username:
+        return jsonify({'success': False, 'error': '不能删除当前登录账号'}), 400
+
+    result = PanelUserStore.delete_user(username)
+    status_code = 200 if result.get('success') else 400
+    return jsonify(result), status_code
+
+@app.route('/api/panel-users/password', methods=['POST'])
+@login_required
+def reset_panel_user_password():
+    if not getattr(current_user, 'is_admin', False):
+        return jsonify({'success': False, 'error': '仅管理员可重置密码'}), 403
+
+    data = request.get_json() or {}
+    username = (data.get('username') or '').strip()
+    password = data.get('password') or ''
+    if not username:
+        return jsonify({'success': False, 'error': '未指定用户名'}), 400
+
+    result = PanelUserStore.set_password(username, password)
+    status_code = 200 if result.get('success') else 400
+    return jsonify(result), status_code
+
+@app.route('/api/panel-users/change-password', methods=['POST'])
+@login_required
+def change_own_panel_user_password():
+    data = request.get_json() or {}
+    current_password = data.get('current_password') or ''
+    new_password = data.get('new_password') or ''
+
+    if not PanelUserStore.verify_password(current_user.username, current_password):
+        return jsonify({'success': False, 'error': '当前密码错误'}), 400
+
+    result = PanelUserStore.set_password(current_user.username, new_password)
+    status_code = 200 if result.get('success') else 400
+    return jsonify(result), status_code
+
 # ============ 主页面路由 ============
 
 @app.route('/')
@@ -98,6 +179,7 @@ def index():
 @app.route('/performance')
 @app.route('/terminal')
 @app.route('/files')
+@app.route('/panel-users')
 @app.route('/settings')
 @login_required
 def spa_page():
