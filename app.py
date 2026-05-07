@@ -19,7 +19,7 @@ import logging
 from datetime import datetime
 
 from config import Config
-from auth import User, PanelUserStore
+from auth import User, PanelUserStore, LoginGuard
 from system_info import SystemInfo
 from file_manager import FileManager
 from service_manager import ServiceManager
@@ -248,16 +248,44 @@ def login():
         data = request.get_json() or {}
         username = data.get('username')
         password = data.get('password')
+
+        # 检查账户是否被锁定
+        is_locked, remaining = LoginGuard.check_locked(username or '')
+        if is_locked:
+            append_audit_log('auth.login', result='locked', target=username or '')
+            minutes = remaining // 60
+            seconds = remaining % 60
+            return jsonify({
+                'success': False,
+                'error': f'账户已被锁定，请 {minutes} 分 {seconds} 秒后再试'
+            }), 429
         
         user = User.verify(username, password)
         if user:
+            LoginGuard.record_success(username)
             login_user(user)
             append_audit_log('auth.login', target=username)
             logger.info('登录成功: %s  ip=%s', username, get_client_ip())
             return jsonify({'success': True})
+
+        LoginGuard.record_failure(username or '')
+        # 重新检查锁定状态，告知剩余次数
+        _locked, _remaining = LoginGuard.check_locked(username or '')
         append_audit_log('auth.login', result='failed', target=username or '')
         logger.warning('登录失败: %s  ip=%s', username or '(empty)', get_client_ip())
-        return jsonify({'success': False, 'error': '用户名或密码错误'}), 401
+        if _locked:
+            minutes = _remaining // 60
+            seconds = _remaining % 60
+            return jsonify({
+                'success': False,
+                'error': f'连续错误次数过多，账户已被锁定 {minutes} 分 {seconds} 秒'
+            }), 429
+        # 计算剩余尝试次数
+        entry = LoginGuard._state.get(username or '', {})
+        attempts = entry.get('count', 1)
+        left = max(0, LoginGuard.MAX_ATTEMPTS - attempts)
+        detail = f'（还可尝试 {left} 次）' if left > 0 else ''
+        return jsonify({'success': False, 'error': f'用户名或密码错误{detail}'}), 401
     
     return render_template('login.html')
 
@@ -1888,6 +1916,73 @@ def terminal_disconnect():
         except:
             pass
         del terminals[sid]
+
+
+# ============ 磁盘大文件分析 ============
+
+@app.route('/api/disk/usage')
+@login_required
+def disk_usage():
+    """返回各挂载点磁盘使用情况"""
+    try:
+        import shutil
+        partitions = []
+        for part in __import__('psutil').disk_partitions(all=False):
+            try:
+                usage = shutil.disk_usage(part.mountpoint)
+                partitions.append({
+                    'device': part.device,
+                    'mountpoint': part.mountpoint,
+                    'fstype': part.fstype,
+                    'total': usage.total,
+                    'used': usage.used,
+                    'free': usage.free,
+                    'percent': round(usage.used / usage.total * 100, 1) if usage.total else 0
+                })
+            except (PermissionError, OSError):
+                continue
+        return jsonify({'success': True, 'partitions': partitions})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/disk/large-files')
+@login_required
+def disk_large_files():
+    """扫描指定目录下最大的文件，返回 top N"""
+    if not has_permission('files.read'):
+        return deny_with_audit('files.read', 'disk.large_files')
+
+    scan_path = request.args.get('path', '/').strip()
+    limit = min(int(request.args.get('limit', 50)), 200)
+
+    # 安全校验：防止路径穿越
+    try:
+        real = os.path.realpath(scan_path)
+    except Exception:
+        return jsonify({'success': False, 'error': '无效路径'}), 400
+
+    if not os.path.isdir(real):
+        return jsonify({'success': False, 'error': '目标不是目录'}), 400
+
+    results = []
+    try:
+        for dirpath, _dirs, files in os.walk(real, followlinks=False):
+            for fname in files:
+                fpath = os.path.join(dirpath, fname)
+                try:
+                    size = os.path.getsize(fpath)
+                    results.append({'path': fpath, 'size': size})
+                except (OSError, PermissionError):
+                    continue
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+    results.sort(key=lambda x: x['size'], reverse=True)
+    results = results[:limit]
+    append_audit_log('disk.scan', target=real, detail=f'limit={limit}')
+    return jsonify({'success': True, 'files': results, 'scan_path': real, 'total_scanned': len(results)})
+
 
 if __name__ == '__main__':
     os.makedirs('sessions', exist_ok=True)

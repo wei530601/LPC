@@ -2,11 +2,17 @@
 <div class="modal" id="editor-modal">
     <div class="modal-content modal-large">
         <div class="modal-header">
-            <h3>编辑文件: <span id="editor-filename"></span></h3>
+            <h3>编辑文件: <span id="editor-filename"></span> <span id="editor-dirty-indicator" style="color:#f0a500;display:none;" title="有未保存的修改">●</span></h3>
             <button class="modal-close" onclick="closeEditor()">&times;</button>
         </div>
-        <div class="modal-body">
-            <textarea id="file-editor"></textarea>
+        <div class="modal-body" style="padding:0;">
+            <div class="editor-toolbar">
+                <button class="btn btn-sm" onclick="editorExecCommand('find')" title="查找 (Ctrl+F)">查找</button>
+                <button class="btn btn-sm" onclick="editorExecCommand('replace')" title="替换 (Ctrl+H)">替换</button>
+                <button class="btn btn-sm" onclick="editorExecCommand('jumpToLine')" title="跳转行 (Alt+G)">跳转行</button>
+                <span id="editor-cursor-pos" style="margin-left:auto;font-size:0.8rem;color:#7f8c8d;align-self:center;"></span>
+            </div>
+            <div id="file-editor-cm"></div>
         </div>
         <div class="modal-footer">
             <button class="btn btn-secondary" onclick="closeEditor()">取消</button>

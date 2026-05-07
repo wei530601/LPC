@@ -1,12 +1,59 @@
 import json
 import os
 import re
+import time
 from datetime import datetime
 
 from flask_login import UserMixin
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from config import Config
+
+
+# ==================== 登录失败锁定 ====================
+
+class LoginGuard:
+    """防暴力破解：连续失败 N 次后锁定账户 M 秒"""
+    MAX_ATTEMPTS = 5       # 最大失败次数
+    LOCKOUT_SECONDS = 900  # 锁定时长（15分钟）
+
+    # { username: {'count': int, 'first_fail': float, 'locked_until': float} }
+    _state: dict = {}
+    _lock = __import__('threading').Lock()
+
+    @classmethod
+    def record_failure(cls, username: str) -> None:
+        with cls._lock:
+            now = time.time()
+            entry = cls._state.get(username)
+            if not entry:
+                cls._state[username] = {'count': 1, 'first_fail': now, 'locked_until': 0}
+                return
+            # 如果已过锁定期，重置计数
+            if now >= entry.get('locked_until', 0) and entry['count'] >= cls.MAX_ATTEMPTS:
+                cls._state[username] = {'count': 1, 'first_fail': now, 'locked_until': 0}
+                return
+            entry['count'] += 1
+            if entry['count'] >= cls.MAX_ATTEMPTS:
+                entry['locked_until'] = now + cls.LOCKOUT_SECONDS
+
+    @classmethod
+    def record_success(cls, username: str) -> None:
+        with cls._lock:
+            cls._state.pop(username, None)
+
+    @classmethod
+    def check_locked(cls, username: str):
+        """返回 (is_locked, seconds_remaining)"""
+        with cls._lock:
+            entry = cls._state.get(username)
+            if not entry:
+                return False, 0
+            locked_until = entry.get('locked_until', 0)
+            if locked_until and time.time() < locked_until:
+                remaining = int(locked_until - time.time())
+                return True, remaining
+            return False, 0
 
 
 class PanelUserStore:

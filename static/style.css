@@ -805,6 +805,40 @@ body {
     background: #fff;
 }
 
+/* 文件编辑器工具栏 */
+.editor-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.8rem;
+    background: #1a1d2e;
+    border-bottom: 1px solid #2a2d3e;
+}
+
+/* CodeMirror 编辑器容器 */
+#file-editor-cm .CodeMirror {
+    height: 65vh;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+    font-size: 0.9rem;
+    border: none;
+}
+
+/* CodeMirror dialog（查找替换框）适配深色主题 */
+.CodeMirror-dialog {
+    background: #1a1d2e !important;
+    color: #ecf0f1 !important;
+    border-bottom: 1px solid #2a2d3e !important;
+    padding: 0.4rem 0.8rem !important;
+}
+
+.CodeMirror-dialog input {
+    background: #2a2d3e !important;
+    color: #ecf0f1 !important;
+    border: 1px solid #3a3f5c !important;
+    border-radius: 4px;
+    padding: 2px 6px;
+}
+
 /* 设置页面 */
 .settings-grid {
     display: grid;

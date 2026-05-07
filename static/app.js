@@ -261,6 +261,7 @@ const PAGE_PATHS = {
     control:     '/control',
     network:     '/network',
     performance: '/performance',
+    disk:        '/disk',
     terminal:    '/terminal',
     files:       '/files',
     panelUsers:  '/panel-users',
@@ -313,6 +314,8 @@ function switchToPage(page) {
         loadNetworkPage();
     } else if (page === 'performance') {
         loadPerformancePage();
+    } else if (page === 'disk') {
+        loadDiskPage();
     }
 }
 
@@ -650,6 +653,8 @@ function initTerminal() {
 
 let currentPath = '/';
 let editingFile = null;
+let editorDirty = false;
+let cmEditor = null;           // CodeMirror 实例
 let previewingFile = null;
 let filesHomePath = '/home/pi';
 let filesInitialized = false;
@@ -1053,12 +1058,78 @@ async function editFile(path) {
         }
         
         editingFile = path;
+        editorDirty = false;
         document.getElementById('editor-filename').textContent = path;
-        document.getElementById('file-editor').value = data.content;
+        const dirtyEl = document.getElementById('editor-dirty-indicator');
+        if (dirtyEl) dirtyEl.style.display = 'none';
+
+        // 推断文件语言
+        const ext = path.split('.').pop().toLowerCase();
+        const modeMap = {
+            py: 'python', js: 'javascript', ts: 'javascript',
+            html: 'htmlmixed', htm: 'htmlmixed', xml: 'xml',
+            css: 'css', sh: 'shell', bash: 'shell', zsh: 'shell',
+            yaml: 'yaml', yml: 'yaml', md: 'markdown', json: 'javascript',
+        };
+        const mode = modeMap[ext] || 'text/plain';
+
+        const cmContainer = document.getElementById('file-editor-cm');
+        if (!cmContainer) return;
+        cmContainer.innerHTML = ''; // 清除旧实例
+
+        if (typeof CodeMirror !== 'undefined') {
+            cmEditor = CodeMirror(cmContainer, {
+                value: data.content || '',
+                mode: mode,
+                theme: 'dracula',
+                lineNumbers: true,
+                matchBrackets: true,
+                autoCloseBrackets: true,
+                indentUnit: 4,
+                tabSize: 4,
+                indentWithTabs: false,
+                lineWrapping: false,
+                extraKeys: {
+                    'Ctrl-S': () => saveFile(),
+                    'Cmd-S':  () => saveFile(),
+                    'Ctrl-F': 'find',
+                    'Cmd-F':  'find',
+                    'Ctrl-H': 'replace',
+                    'Cmd-H':  'replace',
+                    'Alt-G':  'jumpToLine',
+                }
+            });
+            cmEditor.on('change', () => {
+                if (!editorDirty) {
+                    editorDirty = true;
+                    const el = document.getElementById('editor-dirty-indicator');
+                    if (el) el.style.display = 'inline';
+                }
+            });
+            cmEditor.on('cursorActivity', () => {
+                const cursor = cmEditor.getCursor();
+                const posEl = document.getElementById('editor-cursor-pos');
+                if (posEl) posEl.textContent = `行 ${cursor.line + 1}，列 ${cursor.ch + 1}`;
+            });
+        } else {
+            // CodeMirror 未加载时降级到 textarea
+            cmEditor = null;
+            cmContainer.innerHTML = `<textarea id="file-editor-fallback" style="width:100%;height:65vh;font-family:monospace;font-size:0.9rem;background:#282a36;color:#f8f8f2;border:none;padding:0.8rem;resize:none;box-sizing:border-box;"></textarea>`;
+            document.getElementById('file-editor-fallback').value = data.content || '';
+        }
+
         document.getElementById('editor-modal').classList.add('active');
+        if (cmEditor) setTimeout(() => cmEditor.refresh(), 50);
         
     } catch (error) {
         showMessage('读取文件失败: ' + error.message, 'error');
+    }
+}
+
+function editorExecCommand(cmd) {
+    if (cmEditor && cmEditor.execCommand) {
+        cmEditor.execCommand(cmd);
+        cmEditor.focus();
     }
 }
 
@@ -1113,8 +1184,15 @@ function closePreview() {
 
 async function saveFile() {
     if (!editingFile) return;
-    
-    const content = document.getElementById('file-editor').value;
+
+    // 从 CodeMirror 或降级 textarea 获取内容
+    let content;
+    if (cmEditor) {
+        content = cmEditor.getValue();
+    } else {
+        const fb = document.getElementById('file-editor-fallback');
+        content = fb ? fb.value : '';
+    }
     
     try {
         const response = await fetch('/api/files/write', {
@@ -1131,6 +1209,9 @@ async function saveFile() {
         const result = await response.json();
         
         if (result.success) {
+            editorDirty = false;
+            const dirtyEl = document.getElementById('editor-dirty-indicator');
+            if (dirtyEl) dirtyEl.style.display = 'none';
             showMessage('保存成功', 'success');
             closeEditor();
             loadFiles(currentPath);
@@ -1142,9 +1223,22 @@ async function saveFile() {
     }
 }
 
-function closeEditor() {
+async function closeEditor() {
+    if (editorDirty) {
+        const confirmed = await uiConfirm('文件有未保存的修改，确定要丢弃并关闭吗？', '未保存的修改');
+        if (!confirmed) return;
+    }
     document.getElementById('editor-modal').classList.remove('active');
+    if (cmEditor) {
+        cmEditor.toTextArea && cmEditor.toTextArea();
+        cmEditor = null;
+    }
+    const cmContainer = document.getElementById('file-editor-cm');
+    if (cmContainer) cmContainer.innerHTML = '';
     editingFile = null;
+    editorDirty = false;
+    const dirtyEl = document.getElementById('editor-dirty-indicator');
+    if (dirtyEl) dirtyEl.style.display = 'none';
 }
 
 async function deleteItem(path) {
@@ -3535,3 +3629,100 @@ function showMessage(message, type = 'info') {
 }
 
 // ==================== 初始化 ====================
+
+// ==================== 磁盘大文件分析 ====================
+
+async function loadDiskPage() {
+    await loadDiskUsage();
+    // 清空上次扫描结果
+    const resultEl = document.getElementById('disk-large-files-result');
+    if (resultEl) resultEl.style.display = 'none';
+}
+
+async function loadDiskUsage() {
+    const container = document.getElementById('disk-partitions-list');
+    if (!container) return;
+    container.innerHTML = '<div class="loading-text">加载中...</div>';
+    try {
+        const data = await apiCall('/api/disk/usage');
+        if (!data.success) {
+            container.innerHTML = `<div class="error-text">${data.error || '获取失败'}</div>`;
+            return;
+        }
+        if (!data.partitions || data.partitions.length === 0) {
+            container.innerHTML = '<div class="loading-text">未找到磁盘分区</div>';
+            return;
+        }
+        container.innerHTML = data.partitions.map(p => {
+            const pct = p.percent;
+            const barColor = pct >= 90 ? '#e74c3c' : pct >= 70 ? '#f0a500' : '#27ae60';
+            return `
+            <div style="margin-bottom:1.2rem;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;">
+                    <span style="font-weight:600;">${p.mountpoint}</span>
+                    <span style="color:#7f8c8d;font-size:0.85rem;">${p.device} &nbsp; ${p.fstype}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:0.8rem;">
+                    <div style="flex:1;background:#2a2d3e;border-radius:4px;height:12px;overflow:hidden;">
+                        <div style="width:${pct}%;background:${barColor};height:100%;border-radius:4px;transition:width 0.3s;"></div>
+                    </div>
+                    <span style="min-width:40px;text-align:right;font-size:0.85rem;">${pct}%</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:0.8rem;color:#7f8c8d;margin-top:0.3rem;">
+                    <span>已用 ${formatBytes(p.used)}</span>
+                    <span>可用 ${formatBytes(p.free)}</span>
+                    <span>总计 ${formatBytes(p.total)}</span>
+                </div>
+            </div>`;
+        }).join('');
+    } catch (e) {
+        container.innerHTML = `<div class="error-text">获取失败: ${e.message}</div>`;
+    }
+}
+
+async function scanLargeFiles() {
+    const pathInput = document.getElementById('disk-scan-path');
+    const limitSelect = document.getElementById('disk-scan-limit');
+    const scanBtn = document.getElementById('disk-scan-btn');
+    const statusEl = document.getElementById('disk-scan-status');
+    const resultEl = document.getElementById('disk-large-files-result');
+    if (!pathInput || !limitSelect || !scanBtn) return;
+
+    const scanPath = pathInput.value.trim() || '/';
+    const limit = limitSelect.value;
+
+    scanBtn.disabled = true;
+    scanBtn.textContent = '扫描中...';
+    if (statusEl) statusEl.style.display = 'block';
+    if (resultEl) resultEl.style.display = 'none';
+
+    try {
+        const data = await apiCall(`/api/disk/large-files?path=${encodeURIComponent(scanPath)}&limit=${limit}`);
+        if (!data.success) {
+            await uiAlert('扫描失败: ' + (data.error || '未知错误'));
+            return;
+        }
+        document.getElementById('disk-scan-result-path').textContent = data.scan_path;
+        document.getElementById('disk-scan-result-count').textContent = data.files.length;
+        const tbody = document.getElementById('disk-large-files-tbody');
+        if (tbody) {
+            tbody.innerHTML = data.files.map((f, i) => `
+                <tr>
+                    <td style="color:#7f8c8d;">${i + 1}</td>
+                    <td style="word-break:break-all;font-size:0.85rem;">${escapeHtml(f.path)}</td>
+                    <td style="text-align:right;white-space:nowrap;">${formatBytes(f.size)}</td>
+                </tr>`).join('') || '<tr><td colspan="3" style="text-align:center;color:#7f8c8d;">未找到文件</td></tr>';
+        }
+        if (resultEl) resultEl.style.display = 'block';
+    } catch (e) {
+        await uiAlert('扫描失败: ' + e.message);
+    } finally {
+        scanBtn.disabled = false;
+        scanBtn.textContent = '开始扫描';
+        if (statusEl) statusEl.style.display = 'none';
+    }
+}
+
+function escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
