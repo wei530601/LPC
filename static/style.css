@@ -521,6 +521,29 @@ body {
     font-size: 0.9rem;
 }
 
+.breadcrumb-address {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.path-input {
+    flex: 1;
+    padding: 0.3rem 0.6rem;
+    border: 1px solid #d6dde3;
+    border-radius: 3px;
+    background: #f7f9fb;
+    color: #2c3e50;
+    font-size: 0.9rem;
+    font-family: monospace;
+    outline: none;
+}
+
+.path-input:focus {
+    border-color: #3498db;
+    background: #fff;
+}
+
 .breadcrumb a {
     color: #3498db;
     text-decoration: none;

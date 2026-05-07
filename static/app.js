@@ -557,25 +557,32 @@ async function loadFiles(path) {
 
 function updateBreadcrumb(path) {
     const breadcrumb = document.getElementById('breadcrumb');
-    const parts = path.split('/').filter(p => p);
 
     let html = `
         <div class="breadcrumb-nav">
             <a class="breadcrumb-btn" href="#" onclick="loadFiles('/'); return false;">根目录 /</a>
             <a class="breadcrumb-btn" href="#" onclick="loadFiles('${escapePathForOnclick(filesHomePath)}'); return false;">用户目录 ${filesHomePath}</a>
         </div>
-        <div class="breadcrumb-path">
-            当前位置: <a href="#" onclick="loadFiles('/'); return false;">/</a>
+        <div class="breadcrumb-address">
+            <input type="text" id="path-input" class="path-input" value="${path.replace(/"/g, '&quot;')}" spellcheck="false"
+                onkeydown="if(event.key==='Enter'){navigateToInputPath();event.preventDefault();}"
+                onclick="this.select()">
+            <button class="btn btn-sm" onclick="navigateToInputPath()">前往</button>
+        </div>
     `;
 
-    let pathAccumulator = '';
-    parts.forEach((part) => {
-        pathAccumulator += '/' + part;
-        html += ` / <a href="#" onclick="loadFiles('${escapePathForOnclick(pathAccumulator)}'); return false;">${part}</a>`;
-    });
-
-    html += '</div>';
     breadcrumb.innerHTML = html;
+}
+
+function navigateToInputPath() {
+    let input = document.getElementById('path-input').value.trim();
+    if (!input) input = '/';
+    // 确保以 / 开头，并消除重复 //
+    if (!input.startsWith('/')) input = '/' + input;
+    input = input.replace(/\/\/+/g, '/');
+    // 移除尾部 / （根目录保留）
+    if (input.length > 1 && input.endsWith('/')) input = input.slice(0, -1);
+    loadFiles(input);
 }
 
 function createFileItem(item, basePath) {
