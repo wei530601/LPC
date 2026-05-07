@@ -21,6 +21,14 @@ class PanelUserStore:
         'terminal.access': False,
         'panel_users.manage': False,
         'audit.read': False,
+        'audit.export': False,
+        'system.control': False,
+        'users.manage': False,
+        'packages.manage': False,
+        'docker.manage': False,
+        'network.manage': False,
+        'update.manage': False,
+        'config.manage': False,
     }
     PERMISSION_LABELS = {
         'files.read': '文件浏览',
@@ -32,6 +40,14 @@ class PanelUserStore:
         'terminal.access': '终端访问',
         'panel_users.manage': '面板用户管理',
         'audit.read': '审计日志查看',
+        'audit.export': '审计日志导出',
+        'system.control': '系统控制',
+        'users.manage': '系统用户管理',
+        'packages.manage': '软件包管理',
+        'docker.manage': 'Docker 管理',
+        'network.manage': '网络管理',
+        'update.manage': '系统更新/回滚',
+        'config.manage': '配置备份恢复',
     }
 
     @classmethod

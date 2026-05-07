@@ -4,6 +4,9 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 import os
 import json
 import mimetypes
+import csv
+import io
+import zipfile
 import pty
 import subprocess
 import select
@@ -101,6 +104,12 @@ ALERT_THRESHOLDS = {
 # 存储终端会话
 terminals = {}
 UPDATE_BACKUP_FILE = os.path.join('data', 'update_backups.json')
+CONFIG_BACKUP_ITEMS = {
+    'panel_users.json': Config.PANEL_USERS_FILE,
+    'audit_log.jsonl': Config.AUDIT_LOG_FILE,
+    'update_backups.json': UPDATE_BACKUP_FILE,
+    'panel_settings.json': Config.PANEL_SETTINGS_FILE,
+}
 
 
 def _repo_cwd():
@@ -214,6 +223,18 @@ def append_audit_log(action, result='success', target='', detail=''):
 def deny_with_audit(permission_key, action):
     append_audit_log(action, result='denied', detail=f'permission:{permission_key}')
     return jsonify({'success': False, 'error': '权限不足'}), 403
+
+
+def parse_iso_datetime(value):
+    if not value:
+        return None
+    try:
+        v = value.strip()
+        if v.endswith('Z'):
+            v = v[:-1] + '+00:00'
+        return datetime.fromisoformat(v)
+    except Exception:
+        return None
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -393,6 +414,12 @@ def list_audit_logs():
 
     limit = request.args.get('limit', 200, type=int)
     limit = max(1, min(limit, 1000))
+    username_filter = (request.args.get('username') or '').strip()
+    action_filter = (request.args.get('action') or '').strip()
+    result_filter = (request.args.get('result') or '').strip()
+    keyword_filter = (request.args.get('q') or '').strip().lower()
+    start_dt = parse_iso_datetime(request.args.get('start') or '')
+    end_dt = parse_iso_datetime(request.args.get('end') or '')
 
     if not os.path.exists(Config.AUDIT_LOG_FILE):
         return jsonify({'success': True, 'logs': []})
@@ -406,13 +433,189 @@ def list_audit_logs():
             if not line:
                 continue
             try:
-                logs.append(json.loads(line))
+                entry = json.loads(line)
+                if username_filter and entry.get('username') != username_filter:
+                    continue
+                if action_filter and action_filter not in (entry.get('action') or ''):
+                    continue
+                if result_filter and entry.get('result') != result_filter:
+                    continue
+
+                if start_dt or end_dt:
+                    ts = parse_iso_datetime(entry.get('timestamp') or '')
+                    if start_dt and ts and ts < start_dt:
+                        continue
+                    if end_dt and ts and ts > end_dt:
+                        continue
+
+                if keyword_filter:
+                    merged = ' '.join([
+                        str(entry.get('username') or ''),
+                        str(entry.get('action') or ''),
+                        str(entry.get('target') or ''),
+                        str(entry.get('detail') or ''),
+                        str(entry.get('result') or ''),
+                    ]).lower()
+                    if keyword_filter not in merged:
+                        continue
+
+                logs.append(entry)
+                if len(logs) >= limit:
+                    break
             except json.JSONDecodeError:
                 continue
     except OSError as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
     return jsonify({'success': True, 'logs': logs})
+
+
+@app.route('/api/audit-logs/export')
+@login_required
+def export_audit_logs():
+    if not has_permission('audit.export'):
+        return deny_with_audit('audit.export', 'audit.export')
+
+    # 复用过滤参数
+    limit = request.args.get('limit', 1000, type=int)
+    limit = max(1, min(limit, 5000))
+    username_filter = (request.args.get('username') or '').strip()
+    action_filter = (request.args.get('action') or '').strip()
+    result_filter = (request.args.get('result') or '').strip()
+    keyword_filter = (request.args.get('q') or '').strip().lower()
+    start_dt = parse_iso_datetime(request.args.get('start') or '')
+    end_dt = parse_iso_datetime(request.args.get('end') or '')
+
+    rows = []
+    if os.path.exists(Config.AUDIT_LOG_FILE):
+        with open(Config.AUDIT_LOG_FILE, 'r', encoding='utf-8') as f:
+            for line in reversed(f.readlines()):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+                if username_filter and entry.get('username') != username_filter:
+                    continue
+                if action_filter and action_filter not in (entry.get('action') or ''):
+                    continue
+                if result_filter and entry.get('result') != result_filter:
+                    continue
+
+                if start_dt or end_dt:
+                    ts = parse_iso_datetime(entry.get('timestamp') or '')
+                    if start_dt and ts and ts < start_dt:
+                        continue
+                    if end_dt and ts and ts > end_dt:
+                        continue
+
+                if keyword_filter:
+                    merged = ' '.join([
+                        str(entry.get('username') or ''),
+                        str(entry.get('action') or ''),
+                        str(entry.get('target') or ''),
+                        str(entry.get('detail') or ''),
+                        str(entry.get('result') or ''),
+                    ]).lower()
+                    if keyword_filter not in merged:
+                        continue
+
+                rows.append(entry)
+                if len(rows) >= limit:
+                    break
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['timestamp', 'username', 'action', 'target', 'result', 'detail', 'path', 'method', 'ip'])
+    for row in rows:
+        writer.writerow([
+            row.get('timestamp', ''),
+            row.get('username', ''),
+            row.get('action', ''),
+            row.get('target', ''),
+            row.get('result', ''),
+            row.get('detail', ''),
+            row.get('path', ''),
+            row.get('method', ''),
+            row.get('ip', ''),
+        ])
+
+    append_audit_log('audit.export', target=f'rows={len(rows)}')
+    return send_file(
+        io.BytesIO(output.getvalue().encode('utf-8-sig')),
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name=f'audit_logs_{datetime.utcnow().strftime("%Y%m%d_%H%M%S")}.csv'
+    )
+
+
+@app.route('/api/config/backup')
+@login_required
+def export_config_backup():
+    if not has_permission('config.manage'):
+        return deny_with_audit('config.manage', 'config.backup.export')
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        meta = {
+            'created_at': datetime.utcnow().isoformat(),
+            'version': '1',
+            'items': []
+        }
+        for arcname, realpath in CONFIG_BACKUP_ITEMS.items():
+            if os.path.exists(realpath):
+                zf.write(realpath, arcname=f'config/{arcname}')
+                meta['items'].append(arcname)
+        zf.writestr('config/backup_meta.json', json.dumps(meta, ensure_ascii=False, indent=2))
+
+    buf.seek(0)
+    append_audit_log('config.backup.export', target='config_backup.zip')
+    return send_file(
+        buf,
+        mimetype='application/zip',
+        as_attachment=True,
+        download_name=f'pi_panel_config_backup_{datetime.utcnow().strftime("%Y%m%d_%H%M%S")}.zip'
+    )
+
+
+@app.route('/api/config/restore', methods=['POST'])
+@login_required
+def import_config_backup():
+    if not has_permission('config.manage'):
+        return deny_with_audit('config.manage', 'config.backup.restore')
+
+    if 'file' not in request.files:
+        return jsonify({'success': False, 'error': '未上传备份文件'}), 400
+
+    file = request.files['file']
+    if not file or not file.filename:
+        return jsonify({'success': False, 'error': '备份文件无效'}), 400
+
+    restored = []
+    try:
+        data = file.read()
+        with zipfile.ZipFile(io.BytesIO(data), 'r') as zf:
+            for arcname, realpath in CONFIG_BACKUP_ITEMS.items():
+                member = f'config/{arcname}'
+                if member not in zf.namelist():
+                    continue
+                parent = os.path.dirname(realpath)
+                if parent:
+                    os.makedirs(parent, exist_ok=True)
+                content = zf.read(member)
+                with open(realpath, 'wb') as f:
+                    f.write(content)
+                restored.append(arcname)
+
+        append_audit_log('config.backup.restore', target=','.join(restored), detail=file.filename)
+        return jsonify({'success': True, 'restored': restored, 'message': '配置恢复完成，建议刷新页面并重启应用'})
+    except zipfile.BadZipFile:
+        return jsonify({'success': False, 'error': '备份文件格式错误'}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # ============ 主页面路由 ============
 
@@ -433,6 +636,7 @@ def index():
 @app.route('/terminal')
 @app.route('/files')
 @app.route('/panel-users')
+@app.route('/audit-logs')
 @app.route('/settings')
 @login_required
 def spa_page():
@@ -474,21 +678,29 @@ def get_network_info():
 @app.route('/api/control/reboot', methods=['POST'])
 @login_required
 def reboot_system():
+    if not has_permission('system.control'):
+        return deny_with_audit('system.control', 'control.reboot')
     return jsonify(SystemControl.reboot_system())
 
 @app.route('/api/control/shutdown', methods=['POST'])
 @login_required
 def shutdown_system():
+    if not has_permission('system.control'):
+        return deny_with_audit('system.control', 'control.shutdown')
     return jsonify(SystemControl.shutdown_system())
 
 @app.route('/api/control/uptime')
 @login_required
 def get_uptime():
+    if not has_permission('system.control'):
+        return deny_with_audit('system.control', 'control.uptime')
     return jsonify(SystemControl.get_uptime())
 
 @app.route('/api/control/logs')
 @login_required
 def get_logs():
+    if not has_permission('system.control'):
+        return deny_with_audit('system.control', 'control.logs')
     lines = request.args.get('lines', 100, type=int)
     service = request.args.get('service', None)
     return jsonify(SystemControl.get_system_logs(lines, service))
@@ -496,11 +708,15 @@ def get_logs():
 @app.route('/api/control/processes')
 @login_required
 def get_processes():
+    if not has_permission('system.control'):
+        return deny_with_audit('system.control', 'control.processes')
     return jsonify(SystemControl.get_processes())
 
 @app.route('/api/control/processes/<int:pid>', methods=['DELETE'])
 @login_required
 def kill_process(pid):
+    if not has_permission('system.control'):
+        return deny_with_audit('system.control', 'control.process.kill')
     return jsonify(SystemControl.kill_process(pid))
 
 # ============ 历史数据API ============
@@ -572,6 +788,8 @@ def check_alerts():
 @login_required
 def check_update():
     """检查是否有更新"""
+    if not has_permission('update.manage'):
+        return deny_with_audit('update.manage', 'update.check')
     try:
         cwd = _repo_cwd()
         # 获取远程版本信息
@@ -619,6 +837,8 @@ def check_update():
 @app.route('/api/update/backup', methods=['POST'])
 @login_required
 def create_update_backup():
+    if not has_permission('update.manage'):
+        return deny_with_audit('update.manage', 'update.backup')
     try:
         note = (request.get_json(silent=True) or {}).get('note', 'manual backup')
         entry, err = _create_update_backup(note)
@@ -633,6 +853,8 @@ def create_update_backup():
 @login_required
 def pull_update():
     """执行更新"""
+    if not has_permission('update.manage'):
+        return deny_with_audit('update.manage', 'update.pull')
     try:
         cwd = _repo_cwd()
         backup_entry, _ = _create_update_backup('before pull update')
@@ -693,6 +915,8 @@ def pull_update():
 @login_required
 def force_update():
     """强制更新（丢弃本地修改）"""
+    if not has_permission('update.manage'):
+        return deny_with_audit('update.manage', 'update.force')
     try:
         cwd = _repo_cwd()
         backup_entry, _ = _create_update_backup('before force update')
@@ -744,6 +968,8 @@ def force_update():
 @login_required
 def rollback_update():
     """回滚到最近备份或指定commit"""
+    if not has_permission('update.manage'):
+        return deny_with_audit('update.manage', 'update.rollback')
     try:
         data = request.get_json(silent=True) or {}
         target_commit = data.get('commit')
@@ -786,6 +1012,8 @@ def rollback_update():
 @login_required
 def restart_app():
     """重启应用"""
+    if not has_permission('update.manage'):
+        return deny_with_audit('update.manage', 'update.restart')
     try:
         # 使用 systemctl 重启（如果配置了服务）
         result = subprocess.run(
@@ -840,6 +1068,8 @@ def scan_wifi():
 @login_required
 def connect_wifi():
     """连接WiFi"""
+    if not has_permission('network.manage'):
+        return deny_with_audit('network.manage', 'network.wifi.connect')
     data = request.json
     ssid = data.get('ssid')
     password = data.get('password')
@@ -849,6 +1079,8 @@ def connect_wifi():
 @login_required
 def disconnect_wifi():
     """断开WiFi"""
+    if not has_permission('network.manage'):
+        return deny_with_audit('network.manage', 'network.wifi.disconnect')
     return jsonify(NetworkManager.disconnect_wifi())
 
 @app.route('/api/network/interfaces')
@@ -861,6 +1093,8 @@ def get_network_interfaces():
 @login_required
 def set_static_ip():
     """设置静态IP"""
+    if not has_permission('network.manage'):
+        return deny_with_audit('network.manage', 'network.interface.static')
     data = request.json
     return jsonify(NetworkManager.set_static_ip(
         data.get('interface'),
@@ -874,6 +1108,8 @@ def set_static_ip():
 @login_required
 def set_dhcp():
     """设置DHCP"""
+    if not has_permission('network.manage'):
+        return deny_with_audit('network.manage', 'network.interface.dhcp')
     data = request.json
     return jsonify(NetworkManager.set_dhcp(data.get('interface')))
 
@@ -887,18 +1123,24 @@ def get_firewall_status():
 @login_required
 def enable_firewall():
     """启用防火墙"""
+    if not has_permission('network.manage'):
+        return deny_with_audit('network.manage', 'network.firewall.enable')
     return jsonify(NetworkManager.enable_firewall())
 
 @app.route('/api/network/firewall/disable', methods=['POST'])
 @login_required
 def disable_firewall():
     """禁用防火墙"""
+    if not has_permission('network.manage'):
+        return deny_with_audit('network.manage', 'network.firewall.disable')
     return jsonify(NetworkManager.disable_firewall())
 
 @app.route('/api/network/firewall/rules', methods=['POST'])
 @login_required
 def add_firewall_rule():
     """添加防火墙规则"""
+    if not has_permission('network.manage'):
+        return deny_with_audit('network.manage', 'network.firewall.rule.add')
     data = request.json
     return jsonify(NetworkManager.add_firewall_rule(
         data.get('port'),
@@ -910,6 +1152,8 @@ def add_firewall_rule():
 @login_required
 def delete_firewall_rule(rule_number):
     """删除防火墙规则"""
+    if not has_permission('network.manage'):
+        return deny_with_audit('network.manage', 'network.firewall.rule.delete')
     return jsonify(NetworkManager.delete_firewall_rule(rule_number))
 
 @app.route('/api/network/ports')
@@ -982,18 +1226,24 @@ def get_network_io():
 @login_required
 def check_docker():
     """检查 Docker 是否已安装"""
+    if not has_permission('docker.manage'):
+        return deny_with_audit('docker.manage', 'docker.check')
     return jsonify({'installed': DockerManager.is_docker_installed()})
 
 @app.route('/api/docker/info')
 @login_required
 def get_docker_info():
     """获取 Docker 系统信息"""
+    if not has_permission('docker.manage'):
+        return deny_with_audit('docker.manage', 'docker.info')
     return jsonify(DockerManager.get_docker_info())
 
 @app.route('/api/docker/containers')
 @login_required
 def get_containers():
     """获取容器列表"""
+    if not has_permission('docker.manage'):
+        return deny_with_audit('docker.manage', 'docker.containers.list')
     all_containers = request.args.get('all', 'true').lower() == 'true'
     return jsonify(DockerManager.get_containers(all_containers))
 
@@ -1001,6 +1251,8 @@ def get_containers():
 @login_required
 def get_container_logs_api(container_id):
     """获取容器日志"""
+    if not has_permission('docker.manage'):
+        return deny_with_audit('docker.manage', 'docker.container.logs')
     lines = request.args.get('lines', 100, type=int)
     return jsonify(DockerManager.get_container_logs(container_id, lines))
 
@@ -1008,30 +1260,40 @@ def get_container_logs_api(container_id):
 @login_required
 def get_container_stats_api(container_id):
     """获取容器资源统计"""
+    if not has_permission('docker.manage'):
+        return deny_with_audit('docker.manage', 'docker.container.stats')
     return jsonify(DockerManager.get_container_stats(container_id))
 
 @app.route('/api/docker/containers/<container_id>/<action>', methods=['POST'])
 @login_required
 def control_container_api(container_id, action):
     """控制容器"""
+    if not has_permission('docker.manage'):
+        return deny_with_audit('docker.manage', f'docker.container.{action}')
     return jsonify(DockerManager.control_container(container_id, action))
 
 @app.route('/api/docker/images')
 @login_required
 def get_images_api():
     """获取镜像列表"""
+    if not has_permission('docker.manage'):
+        return deny_with_audit('docker.manage', 'docker.images.list')
     return jsonify(DockerManager.get_images())
 
 @app.route('/api/docker/images/<path:image_id>', methods=['DELETE'])
 @login_required
 def remove_image_api(image_id):
     """删除镜像"""
+    if not has_permission('docker.manage'):
+        return deny_with_audit('docker.manage', 'docker.image.delete')
     return jsonify(DockerManager.remove_image(image_id))
 
 @app.route('/api/docker/images/pull', methods=['POST'])
 @login_required
 def pull_image_api():
     """拉取镜像"""
+    if not has_permission('docker.manage'):
+        return deny_with_audit('docker.manage', 'docker.image.pull')
     data = request.get_json()
     image_name = data.get('image')
     if not image_name:
@@ -1042,6 +1304,8 @@ def pull_image_api():
 @login_required
 def prune_system_api():
     """清理 Docker 系统"""
+    if not has_permission('docker.manage'):
+        return deny_with_audit('docker.manage', 'docker.system.prune')
     return jsonify(DockerManager.prune_system())
 
 # ============ APT 包管理API ============
@@ -1050,18 +1314,24 @@ def prune_system_api():
 @login_required
 def apt_update():
     """更新软件包列表"""
+    if not has_permission('packages.manage'):
+        return deny_with_audit('packages.manage', 'apt.update')
     return jsonify(AptManager.update_package_list())
 
 @app.route('/api/apt/upgrade', methods=['POST'])
 @login_required
 def apt_upgrade():
     """升级所有软件包"""
+    if not has_permission('packages.manage'):
+        return deny_with_audit('packages.manage', 'apt.upgrade')
     return jsonify(AptManager.upgrade_packages())
 
 @app.route('/api/apt/install', methods=['POST'])
 @login_required
 def apt_install():
     """安装软件包"""
+    if not has_permission('packages.manage'):
+        return deny_with_audit('packages.manage', 'apt.install')
     data = request.get_json()
     package = data.get('package')
     if not package:
@@ -1072,6 +1342,8 @@ def apt_install():
 @login_required
 def apt_remove():
     """卸载软件包"""
+    if not has_permission('packages.manage'):
+        return deny_with_audit('packages.manage', 'apt.remove')
     data = request.get_json()
     package = data.get('package')
     purge = data.get('purge', False)
@@ -1083,6 +1355,8 @@ def apt_remove():
 @login_required
 def apt_search():
     """搜索软件包"""
+    if not has_permission('packages.manage'):
+        return deny_with_audit('packages.manage', 'apt.search')
     keyword = request.args.get('keyword', '')
     limit = request.args.get('limit', 50, type=int)
     if not keyword:
@@ -1093,6 +1367,8 @@ def apt_search():
 @login_required
 def apt_installed():
     """列出已安装的软件包"""
+    if not has_permission('packages.manage'):
+        return deny_with_audit('packages.manage', 'apt.installed')
     limit = request.args.get('limit', 100, type=int)
     return jsonify(AptManager.list_installed_packages(limit))
 
@@ -1100,6 +1376,8 @@ def apt_installed():
 @login_required
 def apt_info():
     """获取软件包详细信息"""
+    if not has_permission('packages.manage'):
+        return deny_with_audit('packages.manage', 'apt.info')
     package = request.args.get('package')
     if not package:
         return jsonify({'success': False, 'error': '未指定软件包名称'}), 400
@@ -1109,18 +1387,24 @@ def apt_info():
 @login_required
 def apt_upgradable():
     """列出可更新的软件包"""
+    if not has_permission('packages.manage'):
+        return deny_with_audit('packages.manage', 'apt.upgradable')
     return jsonify(AptManager.list_upgradable())
 
 @app.route('/api/apt/clean', methods=['POST'])
 @login_required
 def apt_clean():
     """清理缓存"""
+    if not has_permission('packages.manage'):
+        return deny_with_audit('packages.manage', 'apt.clean')
     return jsonify(AptManager.clean_cache())
 
 @app.route('/api/apt/autoremove', methods=['POST'])
 @login_required
 def apt_autoremove():
     """自动移除不需要的软件包"""
+    if not has_permission('packages.manage'):
+        return deny_with_audit('packages.manage', 'apt.autoremove')
     return jsonify(AptManager.autoremove())
 
 # ============ 用户管理API ============
@@ -1129,6 +1413,8 @@ def apt_autoremove():
 @login_required
 def list_users():
     """列出所有用户"""
+    if not has_permission('users.manage'):
+        return deny_with_audit('users.manage', 'users.list')
     include_system = request.args.get('include_system', 'false').lower() == 'true'
     return jsonify(UserManager.list_users(include_system))
 
@@ -1136,6 +1422,8 @@ def list_users():
 @login_required
 def add_user():
     """添加用户"""
+    if not has_permission('users.manage'):
+        return deny_with_audit('users.manage', 'users.add')
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
@@ -1151,6 +1439,8 @@ def add_user():
 @login_required
 def delete_user():
     """删除用户"""
+    if not has_permission('users.manage'):
+        return deny_with_audit('users.manage', 'users.delete')
     data = request.get_json()
     username = data.get('username')
     remove_home = data.get('remove_home', False)
@@ -1164,6 +1454,8 @@ def delete_user():
 @login_required
 def change_user_password():
     """修改用户密码"""
+    if not has_permission('users.manage'):
+        return deny_with_audit('users.manage', 'users.password')
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
@@ -1177,12 +1469,16 @@ def change_user_password():
 @login_required
 def list_groups():
     """列出所有用户组"""
+    if not has_permission('users.manage'):
+        return deny_with_audit('users.manage', 'users.groups')
     return jsonify(UserManager.list_groups())
 
 @app.route('/api/users/group/add', methods=['POST'])
 @login_required
 def add_to_group():
     """添加用户到组"""
+    if not has_permission('users.manage'):
+        return deny_with_audit('users.manage', 'users.group.add')
     data = request.get_json()
     username = data.get('username')
     group = data.get('group')
@@ -1196,6 +1492,8 @@ def add_to_group():
 @login_required
 def remove_from_group():
     """从组中移除用户"""
+    if not has_permission('users.manage'):
+        return deny_with_audit('users.manage', 'users.group.remove')
     data = request.get_json()
     username = data.get('username')
     group = data.get('group')
@@ -1209,12 +1507,16 @@ def remove_from_group():
 @login_required
 def logged_in_users():
     """获取当前登录的用户"""
+    if not has_permission('users.manage'):
+        return deny_with_audit('users.manage', 'users.logged')
     return jsonify(UserManager.get_logged_in_users())
 
 @app.route('/api/users/sudo', methods=['POST'])
 @login_required
 def set_sudo():
     """设置 sudo 权限"""
+    if not has_permission('users.manage'):
+        return deny_with_audit('users.manage', 'users.sudo')
     data = request.get_json()
     username = data.get('username')
     enable = data.get('enable', True)
@@ -1228,6 +1530,8 @@ def set_sudo():
 @login_required
 def lock_user():
     """锁定用户"""
+    if not has_permission('users.manage'):
+        return deny_with_audit('users.manage', 'users.lock')
     data = request.get_json()
     username = data.get('username')
     
@@ -1240,6 +1544,8 @@ def lock_user():
 @login_required
 def unlock_user():
     """解锁用户"""
+    if not has_permission('users.manage'):
+        return deny_with_audit('users.manage', 'users.unlock')
     data = request.get_json()
     username = data.get('username')
     

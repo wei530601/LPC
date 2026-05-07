@@ -172,4 +172,24 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- 配置备份折叠面板 -->
+                <div class="card-group">
+                    <div class="collapsible-header" onclick="toggleCollapse(this)">
+                        <div class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            <span>配置备份包</span>
+                        </div>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="collapsible-body">
+                            <p style="margin-bottom: 0.8rem; color: #7f8c8d;">导出/恢复面板用户、审计日志、更新备份与面板设置。</p>
+                            <div class="update-buttons">
+                                <button class="btn btn-primary" onclick="downloadConfigBackup()">下载配置备份包</button>
+                                <button class="btn btn-warning" onclick="triggerConfigRestoreFile()">从备份包恢复</button>
+                            </div>
+                            <input type="file" id="config-restore-file" accept=".zip" style="display:none" onchange="restoreConfigBackup(this)">
+                        </div>
+                    </div>
+                </div>
             </div>

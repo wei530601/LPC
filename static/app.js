@@ -302,7 +302,7 @@ function switchToPage(page) {
     } else if (page === 'panelUsers') {
         loadPanelUsersPage();
     } else if (page === 'auditLogs') {
-        loadAuditLogs();
+        loadAuditLogsPage();
     } else if (page === 'settings') {
         loadSystemInfo();
         loadCurrentUserInfo();
@@ -1305,6 +1305,11 @@ async function loadCurrentUserInfo() {
             currentUserInput.value = `${data.user.username} (${role})`;
         }
         updateFileToolbar();
+        updateSettingsPermissionUI();
+        const settingsPage = document.getElementById('settings');
+        if (settingsPage && settingsPage.classList.contains('active') && hasPanelPermission('update.manage')) {
+            checkForUpdates();
+        }
     } catch (error) {
         console.error('加载当前用户失败:', error);
     }
@@ -1386,18 +1391,31 @@ async function loadAuditLogs() {
     const tbody = document.getElementById('audit-log-table-body');
     if (!tipEl || !tbody) return;
 
+    const exportBtn = document.querySelector('button[onclick="exportAuditLogs()"]');
+    if (exportBtn) exportBtn.style.display = hasPanelPermission('audit.export') ? 'inline-flex' : 'none';
+
     try {
-        const data = await apiCall('/api/audit-logs?limit=120');
+        const username = (document.getElementById('audit-filter-username')?.value || '').trim();
+        const action = (document.getElementById('audit-filter-action')?.value || '').trim();
+        const result = (document.getElementById('audit-filter-result')?.value || '').trim();
+        const q = (document.getElementById('audit-filter-keyword')?.value || '').trim();
+        const params = new URLSearchParams({ limit: '300' });
+        if (username) params.set('username', username);
+        if (action) params.set('action', action);
+        if (result) params.set('result', result);
+        if (q) params.set('q', q);
+
+        const data = await apiCall(`/api/audit-logs?${params.toString()}`);
         if (!data.success) {
             tipEl.textContent = data.error || '加载日志失败';
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:1rem;">暂无数据</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:1rem;">暂无数据</td></tr>';
             return;
         }
 
         const logs = data.logs || [];
         tipEl.textContent = `最近 ${logs.length} 条操作记录`;
         if (logs.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:1rem;">暂无日志</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:1rem;">暂无日志</td></tr>';
             return;
         }
 
@@ -1413,8 +1431,37 @@ async function loadAuditLogs() {
         `).join('');
     } catch (error) {
         tipEl.textContent = '加载日志失败: ' + error.message;
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:1rem;">加载失败</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:1rem;">加载失败</td></tr>';
     }
+}
+
+async function loadAuditLogsPage() {
+    await loadCurrentUserInfo();
+    await loadAuditLogs();
+}
+
+function clearAuditFilters() {
+    const ids = ['audit-filter-username', 'audit-filter-action', 'audit-filter-result', 'audit-filter-keyword'];
+    ids.forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (el.tagName === 'SELECT') el.value = '';
+        else el.value = '';
+    });
+    loadAuditLogs();
+}
+
+function exportAuditLogs() {
+    const username = (document.getElementById('audit-filter-username')?.value || '').trim();
+    const action = (document.getElementById('audit-filter-action')?.value || '').trim();
+    const result = (document.getElementById('audit-filter-result')?.value || '').trim();
+    const q = (document.getElementById('audit-filter-keyword')?.value || '').trim();
+    const params = new URLSearchParams({ limit: '5000' });
+    if (username) params.set('username', username);
+    if (action) params.set('action', action);
+    if (result) params.set('result', result);
+    if (q) params.set('q', q);
+    window.location.href = `/api/audit-logs/export?${params.toString()}`;
 }
 
 function closePermissionsModal() {
@@ -1673,13 +1720,38 @@ async function loadSystemInfo() {
         document.getElementById('os-info').textContent = 'Raspberry Pi OS';
         document.getElementById('kernel').textContent = 'Linux';
         document.getElementById('python-version').textContent = 'Python 3.x';
+        updateSettingsPermissionUI();
         
         // 自动检查更新
-        checkForUpdates();
+        if (hasPanelPermission('update.manage')) {
+            checkForUpdates();
+        } else {
+            const statusEl = document.getElementById('update-status');
+            if (statusEl) statusEl.textContent = '无查看权限';
+        }
         
     } catch (error) {
         console.error('加载系统信息失败:', error);
     }
+}
+
+function updateSettingsPermissionUI() {
+    const canUpdate = hasPanelPermission('update.manage');
+    const canConfig = hasPanelPermission('config.manage');
+
+    const updateBtn = document.getElementById('update-btn');
+    const forceUpdateBtn = document.getElementById('force-update-btn');
+    const rollbackBtn = document.getElementById('rollback-btn');
+    const backupBtn = document.querySelector('button[onclick="createUpdateBackup()"]');
+    if (updateBtn && !canUpdate) updateBtn.style.display = 'none';
+    if (forceUpdateBtn && !canUpdate) forceUpdateBtn.style.display = 'none';
+    if (rollbackBtn && !canUpdate) rollbackBtn.style.display = 'none';
+    if (backupBtn && !canUpdate) backupBtn.style.display = 'none';
+
+    const cfgDownloadBtn = document.querySelector('button[onclick="downloadConfigBackup()"]');
+    const cfgRestoreBtn = document.querySelector('button[onclick="triggerConfigRestoreFile()"]');
+    if (cfgDownloadBtn && !canConfig) cfgDownloadBtn.style.display = 'none';
+    if (cfgRestoreBtn && !canConfig) cfgRestoreBtn.style.display = 'none';
 }
 
 // ==================== 系统更新功能 ====================
@@ -1876,6 +1948,45 @@ async function rollbackUpdate() {
         }
     } catch (error) {
         showUpdateMessage('回滚失败: ' + error.message, 'error');
+    }
+}
+
+function downloadConfigBackup() {
+    window.location.href = '/api/config/backup';
+}
+
+function triggerConfigRestoreFile() {
+    const input = document.getElementById('config-restore-file');
+    if (input) input.click();
+}
+
+async function restoreConfigBackup(inputEl) {
+    const file = inputEl?.files?.[0];
+    if (!file) return;
+
+    if (!await uiConfirm('确定恢复该配置备份包吗？恢复后建议重启应用。', '恢复配置确认')) {
+        inputEl.value = '';
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const response = await fetch('/api/config/restore', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        if (data.success) {
+            showMessage(`恢复完成：${(data.restored || []).join(', ') || '无文件'}`, 'success');
+        } else {
+            showMessage('恢复失败: ' + (data.error || '未知错误'), 'error');
+        }
+    } catch (error) {
+        showMessage('恢复失败: ' + error.message, 'error');
+    } finally {
+        inputEl.value = '';
     }
 }
 

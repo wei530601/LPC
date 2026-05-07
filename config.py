@@ -12,6 +12,7 @@ class Config:
     FILE_ROOT = '/'
     PANEL_USERS_FILE = os.path.join(BASE_DIR, 'data', 'panel_users.json')
     AUDIT_LOG_FILE = os.path.join(BASE_DIR, 'data', 'audit_log.jsonl')
+    PANEL_SETTINGS_FILE = os.path.join(BASE_DIR, 'data', 'panel_settings.json')
     UPLOAD_FOLDER = '/tmp/uploads'
     MAX_CONTENT_LENGTH = 100 * 1024 * 1024  # 100MB
     
