@@ -13,7 +13,7 @@ async function apiCall(url, options = {}) {
         // 检查是否未授权
         if (response.status === 401) {
             console.error('会话已过期，即将跳转到登录页');
-            alert('会话已过期，请重新登录');
+            await uiAlert('会话已过期，请重新登录');
             setTimeout(() => {
                 window.location.href = '/login';
             }, 1000);
@@ -31,6 +31,112 @@ async function apiCall(url, options = {}) {
         // 如果是网络错误或其他错误，重新抛出
         throw error;
     }
+}
+
+let appDialogResolver = null;
+let appDialogMode = 'alert';
+
+function openAppDialog(options = {}) {
+    const {
+        title = '提示',
+        message = '',
+        mode = 'alert',
+        okText = '确定',
+        cancelText = '取消',
+        defaultValue = ''
+    } = options;
+
+    const modal = document.getElementById('app-dialog-modal');
+    const titleEl = document.getElementById('app-dialog-title');
+    const messageEl = document.getElementById('app-dialog-message');
+    const inputEl = document.getElementById('app-dialog-input');
+    const okBtn = document.getElementById('app-dialog-ok');
+    const cancelBtn = document.getElementById('app-dialog-cancel');
+
+    if (!modal || !titleEl || !messageEl || !inputEl || !okBtn || !cancelBtn) {
+        return Promise.resolve(mode === 'prompt' ? null : mode !== 'confirm');
+    }
+
+    appDialogMode = mode;
+    titleEl.textContent = title;
+    messageEl.textContent = message;
+    okBtn.textContent = okText;
+    cancelBtn.textContent = cancelText;
+
+    const showInput = mode === 'prompt';
+    inputEl.style.display = showInput ? 'block' : 'none';
+    inputEl.value = defaultValue || '';
+    cancelBtn.style.display = mode === 'alert' ? 'none' : 'inline-flex';
+
+    const keyHandler = (event) => {
+        if (event.key === 'Escape' && mode !== 'alert') {
+            event.preventDefault();
+            closeAppDialog(false);
+        }
+        if (event.key === 'Enter' && (mode === 'alert' || mode === 'confirm')) {
+            event.preventDefault();
+            closeAppDialog(true);
+        }
+        if (event.key === 'Enter' && mode === 'prompt') {
+            event.preventDefault();
+            closeAppDialog(true);
+        }
+    };
+    modal.dataset.keyHandlerBound = '1';
+    modal._appDialogKeyHandler = keyHandler;
+    document.addEventListener('keydown', keyHandler);
+
+    modal.classList.add('active');
+
+    setTimeout(() => {
+        if (showInput) {
+            inputEl.focus();
+            inputEl.select();
+        } else {
+            okBtn.focus();
+        }
+    }, 30);
+
+    return new Promise((resolve) => {
+        appDialogResolver = resolve;
+    });
+}
+
+function closeAppDialog(confirmed) {
+    const modal = document.getElementById('app-dialog-modal');
+    const inputEl = document.getElementById('app-dialog-input');
+    if (modal && modal._appDialogKeyHandler) {
+        document.removeEventListener('keydown', modal._appDialogKeyHandler);
+        modal._appDialogKeyHandler = null;
+    }
+    if (modal) modal.classList.remove('active');
+
+    const resolver = appDialogResolver;
+    appDialogResolver = null;
+
+    if (!resolver) return;
+
+    if (appDialogMode === 'confirm') {
+        resolver(Boolean(confirmed));
+        return;
+    }
+    if (appDialogMode === 'prompt') {
+        resolver(confirmed ? inputEl.value : null);
+        return;
+    }
+    resolver(true);
+}
+
+function uiAlert(message, title = '提示') {
+    return openAppDialog({ title, message, mode: 'alert', okText: '确定' });
+}
+
+function uiConfirm(message, title = '确认') {
+    return openAppDialog({ title, message, mode: 'confirm', okText: '确定', cancelText: '取消' });
+}
+
+function uiPrompt(message, title = '输入', defaultValue = '') {
+    return openAppDialog({ title, message, mode: 'prompt', okText: '确定', cancelText: '取消', defaultValue });
 }
 
 function hasPanelPermission(permissionKey) {
@@ -449,7 +555,7 @@ function displayServices(services) {
 }
 
 async function controlService(serviceName, action) {
-    if (!confirm(`确定要${action === 'start' ? '启动' : action === 'stop' ? '停止' : '重启'} ${serviceName} 吗？`)) {
+    if (!await uiConfirm(`确定要${action === 'start' ? '启动' : action === 'stop' ? '停止' : '重启'} ${serviceName} 吗？`, '服务操作确认')) {
         return;
     }
     
@@ -460,13 +566,13 @@ async function controlService(serviceName, action) {
         const result = await response.json();
         
         if (result.success) {
-            alert(result.message);
+            showMessage(result.message, 'success');
             loadServices();
         } else {
-            alert('操作失败: ' + result.error);
+            showMessage('操作失败: ' + result.error, 'error');
         }
     } catch (error) {
-        alert('操作失败: ' + error.message);
+        showMessage('操作失败: ' + error.message, 'error');
     }
 }
 
@@ -658,7 +764,7 @@ async function loadFiles(path) {
         const data = await apiCall(`/api/files/list?path=${encodeURIComponent(currentPath)}`);
         
         if (data.error) {
-            alert('加载失败: ' + data.error);
+            showMessage('加载失败: ' + data.error, 'error');
             return;
         }
         
@@ -684,7 +790,7 @@ async function loadFiles(path) {
         });
         
     } catch (error) {
-        alert('加载失败: ' + error.message);
+        showMessage('加载失败: ' + error.message, 'error');
     }
 }
 
@@ -908,10 +1014,10 @@ function contextDelete() {
     deleteItem(fileContextTarget.itemPath);
 }
 
-function contextRename() {
+async function contextRename() {
     if (!fileContextTarget || !fileContextTarget.item) return;
     const oldName = fileContextTarget.item.name;
-    const nextName = prompt(`请输入新名称（当前: ${oldName}）:`);
+    const nextName = await uiPrompt(`请输入新名称（当前: ${oldName}）:`, '重命名');
     if (!nextName || nextName.trim() === '' || nextName.trim() === oldName) return;
 
     const oldPath = fileContextTarget.itemPath;
@@ -942,7 +1048,7 @@ async function editFile(path) {
         const data = await response.json();
         
         if (data.error) {
-            alert('读取文件失败: ' + data.error);
+            showMessage('读取文件失败: ' + data.error, 'error');
             return;
         }
         
@@ -952,7 +1058,7 @@ async function editFile(path) {
         document.getElementById('editor-modal').classList.add('active');
         
     } catch (error) {
-        alert('读取文件失败: ' + error.message);
+        showMessage('读取文件失败: ' + error.message, 'error');
     }
 }
 
@@ -1025,14 +1131,14 @@ async function saveFile() {
         const result = await response.json();
         
         if (result.success) {
-            alert('保存成功');
+            showMessage('保存成功', 'success');
             closeEditor();
             loadFiles(currentPath);
         } else {
-            alert('保存失败: ' + result.error);
+            showMessage('保存失败: ' + result.error, 'error');
         }
     } catch (error) {
-        alert('保存失败: ' + error.message);
+        showMessage('保存失败: ' + error.message, 'error');
     }
 }
 
@@ -1042,7 +1148,7 @@ function closeEditor() {
 }
 
 async function deleteItem(path) {
-    if (!confirm(`确定要删除 ${path} 吗？`)) {
+    if (!await uiConfirm(`确定要删除 ${path} 吗？`, '删除确认')) {
         return;
     }
     
@@ -1058,13 +1164,13 @@ async function deleteItem(path) {
         const result = await response.json();
         
         if (result.success) {
-            alert('删除成功');
+            showMessage('删除成功', 'success');
             loadFiles(currentPath);
         } else {
-            alert('删除失败: ' + result.error);
+            showMessage('删除失败: ' + result.error, 'error');
         }
     } catch (error) {
-        alert('删除失败: ' + error.message);
+        showMessage('删除失败: ' + error.message, 'error');
     }
 }
 
@@ -1082,13 +1188,13 @@ async function renameItem(oldPath, newPath) {
         });
 
         if (data.success) {
-            alert('重命名成功');
+            showMessage('重命名成功', 'success');
             loadFiles(currentPath);
         } else {
-            alert('重命名失败: ' + (data.error || '未知错误'));
+            showMessage('重命名失败: ' + (data.error || '未知错误'), 'error');
         }
     } catch (error) {
-        alert('重命名失败: ' + error.message);
+        showMessage('重命名失败: ' + error.message, 'error');
     }
 }
 
@@ -1168,13 +1274,13 @@ function uploadFile() {
             const result = await response.json();
             
             if (result.success) {
-                alert('上传成功');
+                showMessage('上传成功', 'success');
                 loadFiles(currentPath);
             } else {
-                alert('上传失败: ' + result.error);
+                showMessage('上传失败: ' + result.error, 'error');
             }
         } catch (error) {
-            alert('上传失败: ' + error.message);
+            showMessage('上传失败: ' + error.message, 'error');
         }
     };
     input.click();
@@ -1416,7 +1522,7 @@ async function submitAddPanelUser() {
 }
 
 async function deletePanelUser(username) {
-    if (!confirm(`确定删除面板用户 ${username} 吗？`)) return;
+    if (!await uiConfirm(`确定删除面板用户 ${username} 吗？`, '删除确认')) return;
 
     try {
         const data = await apiCall('/api/panel-users/delete', {
@@ -1479,17 +1585,17 @@ async function changePassword() {
     const confirmPassword = document.getElementById('confirm-password').value;
 
     if (!currentPassword || !newPassword || !confirmPassword) {
-        alert('请填写完整密码信息');
+        showMessage('请填写完整密码信息', 'warning');
         return;
     }
 
     if (newPassword !== confirmPassword) {
-        alert('两次输入的新密码不一致');
+        showMessage('两次输入的新密码不一致', 'warning');
         return;
     }
 
     if (newPassword.length < 6) {
-        alert('密码长度至少6位');
+        showMessage('密码长度至少6位', 'warning');
         return;
     }
 
@@ -1528,7 +1634,7 @@ function saveSettings() {
     // 应用设置
     applySettings();
     
-    alert('设置已保存');
+    showMessage('设置已保存', 'success');
 }
 
 // 应用设置
@@ -1589,6 +1695,8 @@ async function checkForUpdates() {
             const versionEl = document.getElementById('current-version');
             const statusEl = document.getElementById('update-status');
             const updateBtn = document.getElementById('update-btn');
+            const rollbackBtn = document.getElementById('rollback-btn');
+            const backupInfoEl = document.getElementById('last-backup-info');
             
             // 显示当前版本（只显示前7位commit hash）
             const shortHash = data.current_version.split(' ')[0].substring(0, 7);
@@ -1607,6 +1715,14 @@ async function checkForUpdates() {
                 
                 showUpdateMessage('您的系统已是最新版本', 'success');
             }
+
+            if (data.last_backup && backupInfoEl) {
+                backupInfoEl.textContent = `${data.last_backup.short} (${data.last_backup.note || 'backup'})`;
+                if (rollbackBtn) rollbackBtn.style.display = 'inline-block';
+            } else if (backupInfoEl) {
+                backupInfoEl.textContent = '暂无';
+                if (rollbackBtn) rollbackBtn.style.display = 'none';
+            }
         } else {
             document.getElementById('update-status').textContent = '检查失败';
             showUpdateMessage('检查更新失败: ' + data.error, 'error');
@@ -1619,7 +1735,7 @@ async function checkForUpdates() {
 
 // 执行更新
 async function performUpdate() {
-    if (!confirm('确定要更新系统吗？更新后需要重启服务。')) return;
+    if (!await uiConfirm('确定要更新系统吗？更新前会自动创建备份。', '系统更新')) return;
     
     try {
         const updateBtn = document.getElementById('update-btn');
@@ -1661,7 +1777,7 @@ async function performUpdate() {
 
 // 强制更新（丢弃本地修改）
 async function forceUpdate() {
-    if (!confirm('⚠️ 警告：强制更新会丢弃所有本地修改！\n\n确定要继续吗？')) return;
+    if (!await uiConfirm('⚠️ 警告：强制更新会丢弃所有本地修改！\n\n更新前仍会自动创建备份，确定继续吗？', '强制更新确认')) return;
     
     try {
         const forceUpdateBtn = document.getElementById('force-update-btn');
@@ -1699,7 +1815,7 @@ async function forceUpdate() {
 
 // 重启应用
 async function restartApp() {
-    if (!confirm('确定要重启应用吗？')) return;
+    if (!await uiConfirm('确定要重启应用吗？', '重启确认')) return;
     
     try {
         showUpdateMessage('正在重启应用...', 'warning');
@@ -1719,6 +1835,47 @@ async function restartApp() {
         }
     } catch (error) {
         showUpdateMessage('重启请求失败，请手动重启应用', 'warning');
+    }
+}
+
+async function createUpdateBackup() {
+    const note = await uiPrompt('请输入备份备注（可选）', '创建更新备份');
+    if (note === null) return;
+
+    try {
+        const data = await apiCall('/api/update/backup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ note: (note || '').trim() || 'manual backup' })
+        });
+        if (data.success) {
+            showUpdateMessage(`备份已创建: ${data.backup.short}`, 'success');
+            checkForUpdates();
+        } else {
+            showUpdateMessage('创建备份失败: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showUpdateMessage('创建备份失败: ' + error.message, 'error');
+    }
+}
+
+async function rollbackUpdate() {
+    if (!await uiConfirm('将回滚到最近一次备份版本，继续吗？', '回滚确认')) return;
+    try {
+        const data = await apiCall('/api/update/rollback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        });
+
+        if (data.success) {
+            showUpdateMessage(data.message || '回滚成功，请重启应用', 'success');
+            document.getElementById('restart-btn').style.display = 'inline-block';
+        } else {
+            showUpdateMessage('回滚失败: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showUpdateMessage('回滚失败: ' + error.message, 'error');
     }
 }
 
@@ -1770,37 +1927,37 @@ async function loadUptime() {
 
 // 重启系统
 async function rebootSystem() {
-    if (!confirm('确定要重启系统吗？')) return;
+    if (!await uiConfirm('确定要重启系统吗？', '重启系统确认')) return;
     
     try {
         const response = await fetch('/api/control/reboot', { method: 'POST' });
         const data = await response.json();
         
         if (data.success) {
-            alert('系统正在重启...');
+            showMessage('系统正在重启...', 'success');
         } else {
-            alert('重启失败: ' + data.error);
+            showMessage('重启失败: ' + data.error, 'error');
         }
     } catch (error) {
-        alert('重启失败: ' + error.message);
+        showMessage('重启失败: ' + error.message, 'error');
     }
 }
 
 // 关机
 async function shutdownSystem() {
-    if (!confirm('确定要关闭系统吗？')) return;
+    if (!await uiConfirm('确定要关闭系统吗？', '关机确认')) return;
     
     try {
         const response = await fetch('/api/control/shutdown', { method: 'POST' });
         const data = await response.json();
         
         if (data.success) {
-            alert('系统正在关机...');
+            showMessage('系统正在关机...', 'success');
         } else {
-            alert('关机失败: ' + data.error);
+            showMessage('关机失败: ' + data.error, 'error');
         }
     } catch (error) {
-        alert('关机失败: ' + error.message);
+        showMessage('关机失败: ' + error.message, 'error');
     }
 }
 
@@ -1840,20 +1997,20 @@ async function loadProcesses() {
 
 // 结束进程
 async function killProcess(pid) {
-    if (!confirm(`确定要结束进程 ${pid} 吗？`)) return;
+    if (!await uiConfirm(`确定要结束进程 ${pid} 吗？`, '结束进程确认')) return;
     
     try {
         const response = await fetch(`/api/control/processes/${pid}`, { method: 'DELETE' });
         const data = await response.json();
         
         if (data.success) {
-            alert('进程已结束');
+            showMessage('进程已结束', 'success');
             loadProcesses();
         } else {
-            alert('结束进程失败: ' + data.error);
+            showMessage('结束进程失败: ' + data.error, 'error');
         }
     } catch (error) {
-        alert('结束进程失败: ' + error.message);
+        showMessage('结束进程失败: ' + error.message, 'error');
     }
 }
 
@@ -1928,13 +2085,13 @@ async function scanWifi() {
     }
 }
 
-function connectWifiDialog(ssid, security) {
+async function connectWifiDialog(ssid, security) {
     if (security === 'Open') {
-        if (confirm(`连接到 ${ssid}?`)) {
+        if (await uiConfirm(`连接到 ${ssid}?`, 'WiFi 连接确认')) {
             connectWifiNetwork(ssid, null);
         }
     } else {
-        const password = prompt(`输入 ${ssid} 的密码:`);
+        const password = await uiPrompt(`输入 ${ssid} 的密码:`, 'WiFi 密码');
         if (password) {
             connectWifiNetwork(ssid, password);
         }
@@ -1956,7 +2113,7 @@ async function connectWifiNetwork(ssid, password) {
 }
 
 async function disconnectWifi() {
-    if (!confirm('确定断开WiFi连接？')) return;
+    if (!await uiConfirm('确定断开WiFi连接？', 'WiFi 断开确认')) return;
     
     try {
         const response = await fetch('/api/network/wifi/disconnect', {method: 'POST'});
@@ -2096,7 +2253,7 @@ async function addFirewallRule() {
 }
 
 async function deleteFirewallRule(ruleNumber) {
-    if (!confirm(`确定删除规则 ${ruleNumber}？`)) return;
+    if (!await uiConfirm(`确定删除规则 ${ruleNumber}？`, '防火墙规则删除确认')) return;
     
     try {
         const response = await fetch(`/api/network/firewall/rules/${ruleNumber}`, {method: 'DELETE'});
@@ -2485,7 +2642,7 @@ async function controlDockerContainer(containerId, action) {
         'rm': '删除'
     };
     
-    if (action === 'rm' && !confirm(`确定要删除容器 ${containerId.substring(0, 12)} 吗？`)) {
+    if (action === 'rm' && !await uiConfirm(`确定要删除容器 ${containerId.substring(0, 12)} 吗？`, '容器删除确认')) {
         return;
     }
     
@@ -2496,13 +2653,13 @@ async function controlDockerContainer(containerId, action) {
         const data = await response.json();
         
         if (data.success) {
-            alert(`容器${actionMap[action]}成功`);
+            showMessage(`容器${actionMap[action]}成功`, 'success');
             loadDockerData();
         } else {
-            alert(`容器${actionMap[action]}失败: ${data.error}`);
+            showMessage(`容器${actionMap[action]}失败: ${data.error}`, 'error');
         }
     } catch (error) {
-        alert(`操作失败: ${error.message}`);
+        showMessage(`操作失败: ${error.message}`, 'error');
     }
 }
 
@@ -2541,16 +2698,16 @@ async function viewContainerLogs(containerId) {
                 </html>
             `);
         } else {
-            alert('获取日志失败: ' + data.error);
+            showMessage('获取日志失败: ' + data.error, 'error');
         }
     } catch (error) {
-        alert('获取日志失败: ' + error.message);
+        showMessage('获取日志失败: ' + error.message, 'error');
     }
 }
 
 // 删除镜像
 async function removeDockerImage(imageId) {
-    if (!confirm(`确定要删除镜像 ${imageId} 吗？`)) {
+    if (!await uiConfirm(`确定要删除镜像 ${imageId} 吗？`, '镜像删除确认')) {
         return;
     }
     
@@ -2561,19 +2718,19 @@ async function removeDockerImage(imageId) {
         const data = await response.json();
         
         if (data.success) {
-            alert('镜像删除成功');
+            showMessage('镜像删除成功', 'success');
             loadDockerData();
         } else {
-            alert('镜像删除失败: ' + data.error);
+            showMessage('镜像删除失败: ' + data.error, 'error');
         }
     } catch (error) {
-        alert('删除失败: ' + error.message);
+        showMessage('删除失败: ' + error.message, 'error');
     }
 }
 
 // 显示拉取镜像对话框
-function showPullImageDialog() {
-    const imageName = prompt('请输入要拉取的镜像名称\n例如: nginx:latest, mysql:8.0');
+async function showPullImageDialog() {
+    const imageName = await uiPrompt('请输入要拉取的镜像名称\n例如: nginx:latest, mysql:8.0', '拉取镜像');
     
     if (imageName) {
         pullDockerImage(imageName);
@@ -2583,7 +2740,7 @@ function showPullImageDialog() {
 // 拉取镜像
 async function pullDockerImage(imageName) {
     try {
-        alert('正在拉取镜像，请稍候...');
+        showMessage('正在拉取镜像，请稍候...', 'info');
         
         const response = await fetch('/api/docker/images/pull', {
             method: 'POST',
@@ -2595,19 +2752,19 @@ async function pullDockerImage(imageName) {
         const data = await response.json();
         
         if (data.success) {
-            alert('镜像拉取成功！');
+            showMessage('镜像拉取成功！', 'success');
             loadDockerData();
         } else {
-            alert('镜像拉取失败: ' + data.error);
+            showMessage('镜像拉取失败: ' + data.error, 'error');
         }
     } catch (error) {
-        alert('拉取失败: ' + error.message);
+        showMessage('拉取失败: ' + error.message, 'error');
     }
 }
 
 // 清理 Docker 资源
 async function pruneDocker() {
-    if (!confirm('确定要清理未使用的 Docker 资源吗？\n这将删除:\n- 停止的容器\n- 未使用的网络\n- 悬空的镜像\n- 构建缓存')) {
+    if (!await uiConfirm('确定要清理未使用的 Docker 资源吗？\n这将删除:\n- 停止的容器\n- 未使用的网络\n- 悬空的镜像\n- 构建缓存', 'Docker 清理确认')) {
         return;
     }
     
@@ -2618,13 +2775,13 @@ async function pruneDocker() {
         const data = await response.json();
         
         if (data.success) {
-            alert('清理完成！\n' + data.output);
+            await uiAlert('清理完成！\n' + data.output, 'Docker 清理完成');
             loadDockerData();
         } else {
-            alert('清理失败: ' + data.error);
+            showMessage('清理失败: ' + data.error, 'error');
         }
     } catch (error) {
-        alert('清理失败: ' + error.message);
+        showMessage('清理失败: ' + error.message, 'error');
     }
 }
 
@@ -2854,7 +3011,7 @@ function filterPackages(type) {
 }
 
 async function aptUpdate() {
-    if (!confirm('确定要更新软件包列表吗？')) return;
+    if (!await uiConfirm('确定要更新软件包列表吗？', 'APT 更新确认')) return;
     
     try {
         showMessage('正在更新软件包列表...', 'info');
@@ -2875,7 +3032,7 @@ async function aptUpdate() {
 }
 
 async function aptUpgrade() {
-    if (!confirm('确定要升级所有软件包吗？这可能需要较长时间。')) return;
+    if (!await uiConfirm('确定要升级所有软件包吗？这可能需要较长时间。', 'APT 升级确认')) return;
     
     try {
         showMessage('正在升级系统，请稍候...', 'info');
@@ -2894,7 +3051,7 @@ async function aptUpgrade() {
 }
 
 async function installPackage(packageName) {
-    if (!confirm(`确定要安装 ${packageName} 吗？`)) return;
+    if (!await uiConfirm(`确定要安装 ${packageName} 吗？`, '安装确认')) return;
     
     try {
         showMessage(`正在安装 ${packageName}...`, 'info');
@@ -2919,8 +3076,7 @@ async function installPackage(packageName) {
 }
 
 async function removePackage(packageName) {
-    const purge = confirm(`确定要卸载 ${packageName} 吗？\n\n点击"确定"完全清除（包括配置文件）\n点击"取消"放弃操作`);
-    if (purge === null) return;
+    const purge = await uiConfirm(`确定要卸载 ${packageName} 吗？\n\n点击"确定"完全清除（包括配置文件）\n点击"取消"仅卸载程序`, '卸载确认');
     
     try {
         showMessage(`正在卸载 ${packageName}...`, 'info');
@@ -2956,7 +3112,7 @@ async function showPackageInfo(packageName) {
                 }
             }
             
-            alert(`软件包信息：\n\n${packageName}\n\n${details.replace(/<br>/g, '\n').replace(/<\/?strong>/g, '')}`);
+            await uiAlert(`软件包信息：\n\n${packageName}\n\n${details.replace(/<br>/g, '\n').replace(/<\/?strong>/g, '')}`, '软件包信息');
         } else {
             showMessage('获取软件包信息失败: ' + data.error, 'error');
         }
@@ -2966,7 +3122,7 @@ async function showPackageInfo(packageName) {
 }
 
 async function aptClean() {
-    if (!confirm('确定要清理 APT 缓存吗？')) return;
+    if (!await uiConfirm('确定要清理 APT 缓存吗？', 'APT 清理确认')) return;
     
     try {
         const response = await fetch('/api/apt/clean', { method: 'POST' });
@@ -2983,7 +3139,7 @@ async function aptClean() {
 }
 
 async function aptAutoremove() {
-    if (!confirm('确定要自动移除不需要的软件包吗？')) return;
+    if (!await uiConfirm('确定要自动移除不需要的软件包吗？', 'APT 自动清理确认')) return;
     
     try {
         showMessage('正在清理...', 'info');
@@ -3124,14 +3280,14 @@ async function loadLoggedInUsers() {
     }
 }
 
-function showAddUserDialog() {
-    const username = prompt('请输入用户名（小写字母、数字、下划线）:');
+async function showAddUserDialog() {
+    const username = await uiPrompt('请输入用户名（小写字母、数字、下划线）:', '添加系统用户');
     if (!username) return;
     
-    const password = prompt('请输入密码:');
+    const password = await uiPrompt('请输入密码:', '添加系统用户');
     if (!password) return;
     
-    const addToSudo = confirm('是否授予 sudo 权限？');
+    const addToSudo = await uiConfirm('是否授予 sudo 权限？', 'sudo 权限确认');
     
     addUser(username, password, addToSudo ? ['sudo'] : []);
 }
@@ -3163,9 +3319,9 @@ async function addUser(username, password, groups = []) {
 }
 
 async function deleteUser(username) {
-    if (!confirm(`确定要删除用户 ${username} 吗？`)) return;
+    if (!await uiConfirm(`确定要删除用户 ${username} 吗？`, '用户删除确认')) return;
     
-    const removeHome = confirm('是否同时删除用户的主目录？');
+    const removeHome = await uiConfirm('是否同时删除用户的主目录？', '删除主目录确认');
     
     try {
         const response = await fetch('/api/users/delete', {
@@ -3187,7 +3343,7 @@ async function deleteUser(username) {
 }
 
 async function changeUserPassword(username) {
-    const password = prompt(`请输入 ${username} 的新密码:`);
+    const password = await uiPrompt(`请输入 ${username} 的新密码:`, '修改用户密码');
     if (!password) return;
     
     try {
@@ -3209,10 +3365,10 @@ async function changeUserPassword(username) {
 }
 
 async function manageUserGroups(username) {
-    const action = prompt(`用户组管理：${username}\n\n输入 "add" 添加到组\n输入 "remove" 从组移除`);
+    const action = await uiPrompt(`用户组管理：${username}\n\n输入 "add" 添加到组\n输入 "remove" 从组移除`, '用户组操作');
     if (!action) return;
     
-    const group = prompt('请输入组名（如: sudo, docker）:');
+    const group = await uiPrompt('请输入组名（如: sudo, docker）:', '用户组操作');
     if (!group) return;
     
     try {

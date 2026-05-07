@@ -151,12 +151,18 @@
                                         <div class="info-label">更新状态</div>
                                         <div class="info-value" id="update-status">检查中...</div>
                                     </div>
+                                    <div class="info-item">
+                                        <div class="info-label">最近备份</div>
+                                        <div class="info-value" id="last-backup-info">暂无</div>
+                                    </div>
                                 </div>
                                 <div id="update-message" class="update-message" style="display: none;"></div>
                                 <div class="update-buttons">
                                     <button class="btn btn-primary" onclick="checkForUpdates()">检查更新</button>
+                                    <button class="btn" onclick="createUpdateBackup()">创建备份</button>
                                     <button class="btn btn-warning" id="update-btn" onclick="performUpdate()" style="display: none;">立即更新</button>
                                     <button class="btn btn-danger" id="force-update-btn" onclick="forceUpdate()" style="display: none;">强制更新</button>
+                                    <button class="btn btn-secondary" id="rollback-btn" onclick="rollbackUpdate()" style="display: none;">回滚到备份</button>
                                     <button class="btn btn-danger" id="restart-btn" onclick="restartApp()" style="display: none;">重启应用</button>
                                 </div>
                                 <div style="margin-top: 1rem; font-size: 0.85rem; color: #7f8c8d;">

@@ -29,3 +29,20 @@
         </div>
     </div>
 </div>
+
+<div class="modal" id="app-dialog-modal" onclick="if(event.target===this)closeAppDialog(false)">
+    <div class="modal-content" style="max-width: 430px;">
+        <div class="modal-header">
+            <h3 id="app-dialog-title">提示</h3>
+            <button class="modal-close" onclick="closeAppDialog(false)">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="app-dialog-message" class="app-dialog-message"></div>
+            <input id="app-dialog-input" class="form-input" style="margin-top: 0.8rem; display: none;" autocomplete="off">
+        </div>
+        <div class="modal-footer">
+            <button id="app-dialog-cancel" class="btn" onclick="closeAppDialog(false)">取消</button>
+            <button id="app-dialog-ok" class="btn btn-primary" onclick="closeAppDialog(true)">确定</button>
+        </div>
+    </div>
+</div>

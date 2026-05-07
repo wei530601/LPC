@@ -100,6 +100,78 @@ ALERT_THRESHOLDS = {
 
 # 存储终端会话
 terminals = {}
+UPDATE_BACKUP_FILE = os.path.join('data', 'update_backups.json')
+
+
+def _repo_cwd():
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+def _read_update_backups():
+    if not os.path.exists(UPDATE_BACKUP_FILE):
+        return []
+    try:
+        with open(UPDATE_BACKUP_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            if isinstance(data, list):
+                return data
+    except Exception:
+        pass
+    return []
+
+
+def _write_update_backups(backups):
+    parent = os.path.dirname(UPDATE_BACKUP_FILE)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    with open(UPDATE_BACKUP_FILE, 'w', encoding='utf-8') as f:
+        json.dump(backups[:20], f, ensure_ascii=False, indent=2)
+
+
+def _create_update_backup(note='manual backup'):
+    cwd = _repo_cwd()
+    commit_res = subprocess.run(
+        ['git', 'rev-parse', 'HEAD'],
+        capture_output=True,
+        text=True,
+        timeout=5,
+        cwd=cwd
+    )
+    if commit_res.returncode != 0:
+        return None, commit_res.stderr or commit_res.stdout or '无法读取当前版本'
+
+    commit = commit_res.stdout.strip()
+    if not commit:
+        return None, '无法读取当前版本'
+
+    msg_res = subprocess.run(
+        ['git', 'log', '-1', '--format=%s'],
+        capture_output=True,
+        text=True,
+        timeout=5,
+        cwd=cwd
+    )
+    message = (msg_res.stdout or '').strip() if msg_res.returncode == 0 else ''
+
+    backups = _read_update_backups()
+    entry = {
+        'commit': commit,
+        'short': commit[:7],
+        'message': message,
+        'note': note,
+        'created_at': datetime.utcnow().isoformat()
+    }
+    backups.insert(0, entry)
+    dedup = []
+    seen = set()
+    for item in backups:
+        key = item.get('commit')
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        dedup.append(item)
+    _write_update_backups(dedup)
+    return entry, None
 
 
 def has_permission(permission_key):
@@ -501,12 +573,14 @@ def check_alerts():
 def check_update():
     """检查是否有更新"""
     try:
+        cwd = _repo_cwd()
         # 获取远程版本信息
         result = subprocess.run(
             ['git', 'fetch', 'origin', 'main'],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
+            cwd=cwd
         )
         
         # 比较本地和远程版本
@@ -514,7 +588,8 @@ def check_update():
             ['git', 'rev-list', '--count', 'HEAD..origin/main'],
             capture_output=True,
             text=True,
-            timeout=5
+            timeout=5,
+            cwd=cwd
         )
         
         commits_behind = int(result.stdout.strip()) if result.stdout.strip() else 0
@@ -524,16 +599,33 @@ def check_update():
             ['git', 'log', '-1', '--format=%H %s'],
             capture_output=True,
             text=True,
-            timeout=5
+            timeout=5,
+            cwd=cwd
         )
         current_version = current_result.stdout.strip()
+        backups = _read_update_backups()
         
         return jsonify({
             'success': True,
             'has_update': commits_behind > 0,
             'commits_behind': commits_behind,
-            'current_version': current_version
+            'current_version': current_version,
+            'last_backup': backups[0] if backups else None
         })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/update/backup', methods=['POST'])
+@login_required
+def create_update_backup():
+    try:
+        note = (request.get_json(silent=True) or {}).get('note', 'manual backup')
+        entry, err = _create_update_backup(note)
+        if err:
+            return jsonify({'success': False, 'error': err})
+        append_audit_log('update.backup', target=entry.get('short', ''), detail=note)
+        return jsonify({'success': True, 'backup': entry})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
@@ -542,7 +634,8 @@ def check_update():
 def pull_update():
     """执行更新"""
     try:
-        cwd = os.path.dirname(os.path.abspath(__file__))
+        cwd = _repo_cwd()
+        backup_entry, _ = _create_update_backup('before pull update')
         
         # 1. 先 stash 本地修改
         stash_result = subprocess.run(
@@ -585,7 +678,8 @@ def pull_update():
             return jsonify({
                 'success': True,
                 'message': '更新成功！请重启服务使更改生效。',
-                'output': pull_result.stdout
+                'output': pull_result.stdout,
+                'backup': backup_entry
             })
         else:
             return jsonify({
@@ -600,7 +694,8 @@ def pull_update():
 def force_update():
     """强制更新（丢弃本地修改）"""
     try:
-        cwd = os.path.dirname(os.path.abspath(__file__))
+        cwd = _repo_cwd()
+        backup_entry, _ = _create_update_backup('before force update')
         
         # 1. 重置所有本地修改
         reset_result = subprocess.run(
@@ -633,13 +728,57 @@ def force_update():
             return jsonify({
                 'success': True,
                 'message': '强制更新成功！本地修改已丢弃。请重启服务。',
-                'output': pull_result.stdout
+                'output': pull_result.stdout,
+                'backup': backup_entry
             })
         else:
             return jsonify({
                 'success': False,
                 'error': pull_result.stderr or pull_result.stdout
             })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/update/rollback', methods=['POST'])
+@login_required
+def rollback_update():
+    """回滚到最近备份或指定commit"""
+    try:
+        data = request.get_json(silent=True) or {}
+        target_commit = data.get('commit')
+        backups = _read_update_backups()
+        if not target_commit:
+            if not backups:
+                return jsonify({'success': False, 'error': '没有可用备份'}), 400
+            target_commit = backups[0].get('commit')
+
+        if not target_commit:
+            return jsonify({'success': False, 'error': '备份版本无效'}), 400
+
+        cwd = _repo_cwd()
+        fetch_res = subprocess.run(
+            ['git', 'fetch', '--all'],
+            capture_output=True,
+            text=True,
+            timeout=20,
+            cwd=cwd
+        )
+        if fetch_res.returncode != 0:
+            return jsonify({'success': False, 'error': fetch_res.stderr or fetch_res.stdout})
+
+        reset_res = subprocess.run(
+            ['git', 'reset', '--hard', target_commit],
+            capture_output=True,
+            text=True,
+            timeout=20,
+            cwd=cwd
+        )
+        if reset_res.returncode != 0:
+            return jsonify({'success': False, 'error': reset_res.stderr or reset_res.stdout})
+
+        append_audit_log('update.rollback', target=target_commit[:7])
+        return jsonify({'success': True, 'message': f'已回滚到 {target_commit[:7]}，请重启应用', 'commit': target_commit})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
