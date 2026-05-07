@@ -12,9 +12,12 @@
             <span>文件管理</span>
         </li>
 
-        <li class="nav-group-title">系统 v</li>
-        <li>
-            <ul class="nav-submenu">
+        <li class="nav-group-container">
+            <button type="button" class="nav-group-toggle active" id="system-group-toggle" onclick="toggleSystemMenu()">
+                <span>系统</span>
+                <span class="nav-group-arrow">▼</span>
+            </button>
+            <ul class="nav-submenu active" id="system-submenu">
                 <li class="nav-item nav-sub-item" data-page="terminal">
                     <span>终端</span>
                 </li>

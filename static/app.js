@@ -84,6 +84,38 @@ function collapseAll() {
     });
 }
 
+function initSystemMenuState() {
+    const toggle = document.getElementById('system-group-toggle');
+    const submenu = document.getElementById('system-submenu');
+    if (!toggle || !submenu) return;
+
+    const isCollapsed = localStorage.getItem('systemMenuCollapsed') === '1';
+    if (isCollapsed) {
+        toggle.classList.remove('active');
+        submenu.classList.remove('active');
+    } else {
+        toggle.classList.add('active');
+        submenu.classList.add('active');
+    }
+}
+
+function toggleSystemMenu() {
+    const toggle = document.getElementById('system-group-toggle');
+    const submenu = document.getElementById('system-submenu');
+    if (!toggle || !submenu) return;
+
+    const isOpen = toggle.classList.contains('active');
+    if (isOpen) {
+        toggle.classList.remove('active');
+        submenu.classList.remove('active');
+        localStorage.setItem('systemMenuCollapsed', '1');
+    } else {
+        toggle.classList.add('active');
+        submenu.classList.add('active');
+        localStorage.setItem('systemMenuCollapsed', '0');
+    }
+}
+
 // ==================== 主题切换功能 ====================
 
 function changeTheme() {
@@ -105,6 +137,7 @@ function loadTheme() {
 // 页面加载时应用主题并根据URL初始化页面
 document.addEventListener('DOMContentLoaded', function() {
     loadTheme();
+    initSystemMenuState();
     applySettings();
     startAlertChecking();
     initPageFromURL();
