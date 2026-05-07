@@ -1504,18 +1504,13 @@ async function performUpdate() {
         const data = await response.json();
         
         if (data.success) {
-            showUpdateMessage('更新成功！' + data.message, 'success');
             updateBtn.style.display = 'none';
             forceUpdateBtn.style.display = 'none';
-            restartBtn.style.display = 'inline-block';
-            
-            // 重新检查版本
-            setTimeout(checkForUpdates, 2000);
+            autoRestartAfterUpdate();
         } else {
             showUpdateMessage('更新失败: ' + data.error + '\n如果有本地修改冲突，请使用"强制更新"', 'error');
             updateBtn.disabled = false;
             updateBtn.textContent = '立即更新';
-            // 显示强制更新按钮
             forceUpdateBtn.style.display = 'inline-block';
         }
     } catch (error) {
@@ -1523,7 +1518,6 @@ async function performUpdate() {
         const updateBtn = document.getElementById('update-btn');
         updateBtn.disabled = false;
         updateBtn.textContent = '立即更新';
-        // 显示强制更新按钮
         document.getElementById('force-update-btn').style.display = 'inline-block';
     }
 }
@@ -1546,13 +1540,9 @@ async function forceUpdate() {
         const data = await response.json();
         
         if (data.success) {
-            showUpdateMessage('强制更新成功！' + data.message, 'success');
             forceUpdateBtn.style.display = 'none';
             updateBtn.style.display = 'none';
-            restartBtn.style.display = 'inline-block';
-            
-            // 重新检查版本
-            setTimeout(checkForUpdates, 2000);
+            autoRestartAfterUpdate();
         } else {
             showUpdateMessage('强制更新失败: ' + data.error, 'error');
             forceUpdateBtn.disabled = false;
@@ -1563,6 +1553,42 @@ async function forceUpdate() {
         const forceUpdateBtn = document.getElementById('force-update-btn');
         forceUpdateBtn.disabled = false;
         forceUpdateBtn.textContent = '强制更新';
+    }
+}
+
+// 更新完成后自动重启（倒计时提示）
+async function autoRestartAfterUpdate() {
+    let countdown = 3;
+    const tick = () => {
+        showUpdateMessage(`更新成功！将在 ${countdown} 秒后自动重启面板...`, 'success');
+        if (countdown <= 0) {
+            triggerRestart();
+        } else {
+            countdown--;
+            setTimeout(tick, 1000);
+        }
+    };
+    tick();
+}
+
+async function triggerRestart() {
+    try {
+        showUpdateMessage('正在重启应用...', 'warning');
+        const response = await fetch('/api/update/restart', { method: 'POST' });
+        const data = await response.json();
+        if (data.success) {
+            showUpdateMessage('应用正在重启，页面将在5秒后刷新...', 'success');
+            setTimeout(() => window.location.reload(), 5000);
+        } else if (data.manual) {
+            showUpdateMessage('更新成功！' + data.error, 'warning');
+            document.getElementById('restart-btn').style.display = 'inline-block';
+        } else {
+            showUpdateMessage('重启失败: ' + data.error, 'error');
+            document.getElementById('restart-btn').style.display = 'inline-block';
+        }
+    } catch (error) {
+        showUpdateMessage('重启请求失败，请手动重启应用', 'warning');
+        document.getElementById('restart-btn').style.display = 'inline-block';
     }
 }
 
