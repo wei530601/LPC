@@ -1,0 +1,36 @@
+            <!-- 操作日志页面 -->
+            <div class="page" id="auditLogs">
+                <div class="page-header">
+                    <h2>操作日志</h2>
+                    <div class="user-header-buttons">
+                        <button class="btn" onclick="loadAuditLogs()">刷新</button>
+                    </div>
+                </div>
+
+                <div class="card-group">
+                    <div class="collapsible-header active" onclick="toggleCollapse(this)">
+                        <div class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            <span>操作审计日志</span>
+                        </div>
+                    </div>
+                    <div class="collapsible-content active">
+                        <div class="collapsible-body">
+                            <div id="audit-log-tip" class="stats" style="margin-bottom: 1rem;"></div>
+                            <table class="modern-table">
+                                <thead>
+                                    <tr>
+                                        <th>时间</th>
+                                        <th>用户</th>
+                                        <th>动作</th>
+                                        <th>目标</th>
+                                        <th>结果</th>
+                                        <th>详情</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="audit-log-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>

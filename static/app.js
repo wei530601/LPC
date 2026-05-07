@@ -158,6 +158,7 @@ const PAGE_PATHS = {
     terminal:    '/terminal',
     files:       '/files',
     panelUsers:  '/panel-users',
+    auditLogs:   '/audit-logs',
     settings:    '/settings'
 };
 
@@ -194,6 +195,8 @@ function switchToPage(page) {
         initFilesPage();
     } else if (page === 'panelUsers') {
         loadPanelUsersPage();
+    } else if (page === 'auditLogs') {
+        loadAuditLogs();
     } else if (page === 'settings') {
         loadSystemInfo();
         loadCurrentUserInfo();
@@ -1118,7 +1121,6 @@ async function loadPanelUsersPage() {
     await loadCurrentUserInfo();
     await loadPermissionDefinitions();
     await loadPanelUsers();
-    await loadAuditLogs();
 }
 
 async function loadPermissionDefinitions() {
@@ -1213,6 +1215,7 @@ async function loadAuditLogs() {
                 <td>${log.action || '-'}</td>
                 <td title="${log.detail || ''}">${log.target || '-'}</td>
                 <td>${log.result || '-'}</td>
+                <td style="font-size:0.8rem;color:#888">${log.detail || ''}</td>
             </tr>
         `).join('');
     } catch (error) {

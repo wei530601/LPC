@@ -11,6 +11,7 @@ import struct
 import fcntl
 import shlex
 import threading
+import logging
 from datetime import datetime
 
 from config import Config
@@ -24,6 +25,50 @@ from apt_manager import AptManager
 from user_manager import UserManager
 from network_manager import NetworkManager
 from performance import PerformanceAnalyzer
+
+# ==================== 日志配置 ====================
+
+class _ColorFormatter(logging.Formatter):
+    _RESET  = '\033[0m'
+    _BOLD   = '\033[1m'
+    _COLORS = {
+        logging.DEBUG:    '\033[36m',   # 青色
+        logging.INFO:     '\033[32m',   # 绿色
+        logging.WARNING:  '\033[33m',   # 黄色
+        logging.ERROR:    '\033[31m',   # 红色
+        logging.CRITICAL: '\033[35m',   # 紫色
+    }
+
+    def format(self, record):
+        color = self._COLORS.get(record.levelno, '')
+        ts    = datetime.now().strftime('%H:%M:%S')
+        level = f"{color}{record.levelname:<8}{self._RESET}"
+        name  = f"\033[90m[{record.name}]{self._RESET}"
+        msg   = super().format(record)
+        # 去掉 Formatter 默认拼的前缀，只保留消息体
+        msg = record.getMessage()
+        return f"  {self._BOLD}{ts}{self._RESET}  {level}  {name}  {msg}"
+
+
+def _setup_logging():
+    handler = logging.StreamHandler()
+    handler.setFormatter(_ColorFormatter())
+    handler.setLevel(logging.DEBUG)
+
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    root.handlers = [handler]
+
+    # Werkzeug 访问日志：保留但格式更清晰
+    wz = logging.getLogger('werkzeug')
+    wz.setLevel(logging.INFO)
+
+    # 抑制 SocketIO / engineio 的冗余 DEBUG 输出
+    logging.getLogger('socketio').setLevel(logging.WARNING)
+    logging.getLogger('engineio').setLevel(logging.WARNING)
+
+_setup_logging()
+logger = logging.getLogger('panel')
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -114,8 +159,10 @@ def login():
         if user:
             login_user(user)
             append_audit_log('auth.login', target=username)
+            logger.info('登录成功: %s  ip=%s', username, get_client_ip())
             return jsonify({'success': True})
         append_audit_log('auth.login', result='failed', target=username or '')
+        logger.warning('登录失败: %s  ip=%s', username or '(empty)', get_client_ip())
         return jsonify({'success': False, 'error': '用户名或密码错误'}), 401
     
     return render_template('login.html')
@@ -123,7 +170,9 @@ def login():
 @app.route('/logout')
 @login_required
 def logout():
-    append_audit_log('auth.logout', target=current_user.username)
+    uname = current_user.username
+    append_audit_log('auth.logout', target=uname)
+    logger.info('退出登录: %s', uname)
     logout_user()
     return redirect(url_for('login'))
 
@@ -1379,4 +1428,5 @@ def terminal_disconnect():
 if __name__ == '__main__':
     os.makedirs('sessions', exist_ok=True)
     os.makedirs('data', exist_ok=True)
+    logger.info('\033[1m\033[34mPi Panel\033[0m \033[32m启动\033[0m  http://0.0.0.0:5000')
     socketio.run(app, host='0.0.0.0', port=5000, debug=False)
