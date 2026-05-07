@@ -85,6 +85,8 @@ function loadTheme() {
 // 页面加载时应用主题并根据URL初始化页面
 document.addEventListener('DOMContentLoaded', function() {
     loadTheme();
+    applySettings();
+    startAlertChecking();
     initPageFromURL();
 });
 
@@ -2524,10 +2526,3 @@ function showMessage(message, type = 'info') {
 }
 
 // ==================== 初始化 ====================
-
-// 页面加载完成后启动仪表板更新
-document.addEventListener('DOMContentLoaded', () => {
-    startDashboardUpdates();
-    applySettings();
-    startAlertChecking();
-});

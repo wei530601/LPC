@@ -104,6 +104,7 @@ def spa_page():
     return render_template('index.html')
 
 # ============ 系统信息API ============
+@app.route('/api/system/info')
 @login_required
 def get_system_info():
     return jsonify(SystemInfo.get_all())
