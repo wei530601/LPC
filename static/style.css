@@ -1098,13 +1098,13 @@ body {
     display: flex;
     gap: 0.5rem;
     margin-bottom: 1.5rem;
-    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 2px solid rgba(0, 0, 0, 0.1);
 }
 
 .tab-btn {
     background: transparent;
     border: none;
-    color: rgba(255, 255, 255, 0.7);
+    color: #555;
     padding: 0.75rem 1.5rem;
     cursor: pointer;
     font-size: 0.95rem;
@@ -1114,8 +1114,8 @@ body {
 }
 
 .tab-btn:hover {
-    color: rgba(255, 255, 255, 0.9);
-    background: rgba(255, 255, 255, 0.05);
+    color: #333;
+    background: rgba(0, 0, 0, 0.04);
 }
 
 .tab-btn.active {
@@ -1167,16 +1167,16 @@ body {
     justify-content: space-between;
     align-items: center;
     padding: 1rem;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.02);
+    border: 1px solid rgba(0, 0, 0, 0.1);
     border-radius: 4px;
     margin-bottom: 0.5rem;
     transition: all 0.2s;
 }
 
 .package-item:hover {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.04);
+    border-color: rgba(0, 0, 0, 0.18);
 }
 
 .package-info {
@@ -1230,7 +1230,7 @@ body {
     display: flex;
     gap: 0.5rem;
     margin-bottom: 1.5rem;
-    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 2px solid rgba(0, 0, 0, 0.1);
 }
 
 .user-content {
@@ -1246,7 +1246,7 @@ body {
     align-items: center;
     gap: 0.5rem;
     cursor: pointer;
-    color: rgba(255, 255, 255, 0.7);
+    color: #555;
 }
 
 .filter-options input[type="checkbox"] {
@@ -1264,15 +1264,15 @@ body {
 }
 
 .user-table thead {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.06);
 }
 
 .user-table th {
     padding: 1rem;
     text-align: left;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.9);
-    border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+    color: #444;
+    border-bottom: 2px solid rgba(0, 0, 0, 0.12);
 }
 
 .user-table td {
@@ -1842,6 +1842,15 @@ body.light-theme .table td {
 
 body.light-theme .table strong {
     color: #2c3e50;
+}
+
+body.light-theme .user-table thead {
+    background: #f0f2f5;
+}
+
+body.light-theme .user-table th {
+    color: #333;
+    border-bottom-color: #ddd;
 }
 
 body.light-theme .user-table td {

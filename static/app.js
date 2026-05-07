@@ -1692,7 +1692,7 @@ async function loadDockerContainers() {
                 tbody.appendChild(row);
             });
         } else {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: rgba(255,255,255,0.5);">暂无容器</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">暂无容器</td></tr>';
         }
     } catch (error) {
         console.error('加载容器列表失败:', error);
@@ -1725,7 +1725,7 @@ async function loadDockerImages() {
                 tbody.appendChild(row);
             });
         } else {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: rgba(255,255,255,0.5);">暂无镜像</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">暂无镜像</td></tr>';
         }
     } catch (error) {
         console.error('加载镜像列表失败:', error);
@@ -1997,7 +1997,7 @@ async function loadInstalledPackages() {
         if (data.success) {
             const container = document.getElementById('installed-packages');
             if (data.packages.length === 0) {
-                container.innerHTML = '<p style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.5);">未找到已安装的软件包</p>';
+                container.innerHTML = '<p style="text-align: center; padding: 2rem;">未找到已安装的软件包</p>';
                 return;
             }
             
@@ -2032,7 +2032,7 @@ async function loadUpgradablePackages() {
             info.innerHTML = `<p>发现 <strong>${data.total}</strong> 个可更新的软件包</p>`;
             
             if (data.packages.length === 0) {
-                container.innerHTML = '<p style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.5);">所有软件包都是最新的</p>';
+                container.innerHTML = '<p style="text-align: center; padding: 2rem;">所有软件包都是最新的</p>';
                 return;
             }
             
@@ -2071,7 +2071,7 @@ async function searchPackages() {
         
         if (data.success) {
             if (data.packages.length === 0) {
-                container.innerHTML = '<p style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.5);">未找到匹配的软件包</p>';
+                container.innerHTML = '<p style="text-align: center; padding: 2rem;">未找到匹配的软件包</p>';
                 return;
             }
             
@@ -2301,7 +2301,7 @@ async function loadUsers() {
         if (data.success) {
             const tbody = document.getElementById('users-table-body');
             if (data.users.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.5);">无用户数据</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem;">无用户数据</td></tr>';
                 return;
             }
             
@@ -2338,7 +2338,7 @@ async function loadUserGroups() {
         if (data.success) {
             const tbody = document.getElementById('groups-table-body');
             if (data.groups.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.5);">无用户组数据</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 2rem;">无用户组数据</td></tr>';
                 return;
             }
             
@@ -2364,7 +2364,7 @@ async function loadLoggedInUsers() {
         if (data.success) {
             const tbody = document.getElementById('logged-table-body');
             if (data.users.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.5);">当前无登录用户</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem;">当前无登录用户</td></tr>';
                 return;
             }
             
