@@ -33,6 +33,26 @@ async function apiCall(url, options = {}) {
     }
 }
 
+function hasPanelPermission(permissionKey) {
+    if (!currentPanelUser) return false;
+    if (currentPanelUser.is_admin) return true;
+    const perms = currentPanelUser.permissions || {};
+    return Boolean(perms[permissionKey]);
+}
+
+function normalizePath(path) {
+    let p = (path || '').trim();
+    if (!p) return '/';
+    if (!p.startsWith('/')) p = '/' + p;
+    p = p.replace(/\/\/+/g, '/');
+    if (p.length > 1 && p.endsWith('/')) p = p.slice(0, -1);
+    return p;
+}
+
+function joinPath(base, name) {
+    return normalizePath(`${normalizePath(base)}/${name || ''}`);
+}
+
 // ==================== 折叠面板功能 ====================
 
 function toggleCollapse(header) {
@@ -490,6 +510,7 @@ let currentPath = '/';
 let editingFile = null;
 let filesHomePath = '/home/pi';
 let filesInitialized = false;
+let fileContextTarget = null;
 
 function escapePathForOnclick(path) {
     return path.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -508,21 +529,24 @@ async function getFilesHomePath() {
 }
 
 async function initFilesPage() {
+    await loadCurrentUserInfo();
+    updateFileToolbar();
+    setupFileContextMenuHandlers();
+
     if (!filesInitialized) {
         const homePath = await getFilesHomePath();
         filesInitialized = true;
-        loadFiles(homePath);
+        loadFiles(normalizePath(homePath));
         return;
     }
     loadFiles(currentPath || filesHomePath || '/');
 }
 
 async function loadFiles(path) {
-    currentPath = path;
+    currentPath = normalizePath(path);
     
     try {
-        const response = await fetch(`/api/files/list?path=${encodeURIComponent(path)}`);
-        const data = await response.json();
+        const data = await apiCall(`/api/files/list?path=${encodeURIComponent(currentPath)}`);
         
         if (data.error) {
             alert('加载失败: ' + data.error);
@@ -530,15 +554,15 @@ async function loadFiles(path) {
         }
         
         // 更新面包屑
-        updateBreadcrumb(path);
+        updateBreadcrumb(currentPath);
         
         // 显示文件列表
         const fileList = document.getElementById('file-list');
         fileList.innerHTML = '';
         
         // 返回上级目录
-        if (path !== '/') {
-            const parentDir = path.split('/').slice(0, -1).join('/') || '/';
+        if (currentPath !== '/') {
+            const parentDir = currentPath.split('/').slice(0, -1).join('/') || '/';
             const item = createFileItem({
                 name: '..',
                 type: 'directory'
@@ -547,7 +571,7 @@ async function loadFiles(path) {
         }
         
         data.items.forEach(item => {
-            fileList.appendChild(createFileItem(item, path));
+            fileList.appendChild(createFileItem(item, currentPath));
         });
         
     } catch (error) {
@@ -575,20 +599,93 @@ function updateBreadcrumb(path) {
 }
 
 function navigateToInputPath() {
-    let input = document.getElementById('path-input').value.trim();
-    if (!input) input = '/';
-    // 确保以 / 开头，并消除重复 //
-    if (!input.startsWith('/')) input = '/' + input;
-    input = input.replace(/\/\/+/g, '/');
-    // 移除尾部 / （根目录保留）
-    if (input.length > 1 && input.endsWith('/')) input = input.slice(0, -1);
-    loadFiles(input);
+    const input = document.getElementById('path-input').value;
+    loadFiles(normalizePath(input));
+}
+
+function updateFileToolbar() {
+    const canWrite = hasPanelPermission('files.write');
+    const canUpload = hasPanelPermission('files.upload');
+
+    const createFolderBtn = document.getElementById('btn-create-folder');
+    const createFileBtn = document.getElementById('btn-create-file');
+    const uploadBtn = document.getElementById('btn-upload-file');
+
+    if (createFolderBtn) createFolderBtn.style.display = canWrite ? 'inline-flex' : 'none';
+    if (createFileBtn) createFileBtn.style.display = canWrite ? 'inline-flex' : 'none';
+    if (uploadBtn) uploadBtn.style.display = canUpload ? 'inline-flex' : 'none';
+}
+
+function setupFileContextMenuHandlers() {
+    const menu = document.getElementById('file-context-menu');
+    const fileList = document.getElementById('file-list');
+    if (!menu || !fileList || fileList.dataset.ctxBound === '1') return;
+
+    fileList.dataset.ctxBound = '1';
+    fileList.addEventListener('contextmenu', (event) => {
+        if (event.target.closest('.file-item')) return;
+        event.preventDefault();
+        fileContextTarget = { item: null, itemPath: currentPath, isDir: true, currentDir: currentPath };
+        showFileContextMenu(event.clientX, event.clientY, true);
+    });
+
+    document.addEventListener('click', () => hideFileContextMenu());
+    window.addEventListener('resize', () => hideFileContextMenu());
+}
+
+function showFileContextMenu(x, y, isBlankArea = false) {
+    const menu = document.getElementById('file-context-menu');
+    if (!menu) return;
+
+    const canRead = hasPanelPermission('files.read');
+    const canWrite = hasPanelPermission('files.write');
+    const canDelete = hasPanelPermission('files.delete');
+    const canUpload = hasPanelPermission('files.upload');
+    const canDownload = hasPanelPermission('files.download');
+    const canRename = hasPanelPermission('files.rename');
+
+    const target = fileContextTarget;
+    const actions = [];
+
+    if (isBlankArea) {
+        if (canWrite) {
+            actions.push(['新建文件', 'contextCreateFile']);
+            actions.push(['新建文件夹', 'contextCreateFolder']);
+        }
+        if (canUpload) actions.push(['上传文件', 'contextUploadFile']);
+    } else if (target) {
+        if (target.isDir && target.item && target.item.name !== '..' && canRead) {
+            actions.push(['打开', 'contextOpen']);
+        }
+        if (!target.isDir && canRead) actions.push(['编辑', 'contextEdit']);
+        if (!target.isDir && canDownload) actions.push(['下载', 'contextDownload']);
+        if (target.item && target.item.name !== '..' && canRename) actions.push(['重命名', 'contextRename']);
+        if (target.item && target.item.name !== '..' && canDelete) actions.push(['删除', 'contextDelete']);
+    }
+
+    if (actions.length === 0) {
+        menu.classList.remove('active');
+        return;
+    }
+
+    menu.innerHTML = actions
+        .map(([label, action]) => `<button onclick="${action}(); event.stopPropagation();">${label}</button>`)
+        .join('');
+
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
+    menu.classList.add('active');
+}
+
+function hideFileContextMenu() {
+    const menu = document.getElementById('file-context-menu');
+    if (menu) menu.classList.remove('active');
 }
 
 function createFileItem(item, basePath) {
     const div = document.createElement('div');
     div.className = 'file-item';
-    
+
     const isDir = item.type === 'directory';
     if (isDir) {
         div.classList.add('is-directory');
@@ -597,9 +694,15 @@ function createFileItem(item, basePath) {
     const icon = isDir
         ? '<img src="/static/images/folder.svg" class="file-item-icon file-item-icon-folder" alt="文件夹">'
         : '<img src="/static/images/file.svg" class="file-item-icon file-item-icon-file" alt="文件">';
-    const itemPath = item.name === '..' ? basePath.split('/').slice(0, -1).join('/') || '/' : 
-                     `${basePath}/${item.name}`.replace('//', '/');
-    
+
+    const itemPath = item.name === '..'
+        ? normalizePath(basePath)
+        : joinPath(basePath, item.name);
+
+    const canRead = hasPanelPermission('files.read');
+    const canDelete = hasPanelPermission('files.delete');
+    const canDownload = hasPanelPermission('files.download');
+
     div.innerHTML = `
         <span class="file-icon">${icon}</span>
         <div class="file-info">
@@ -607,22 +710,91 @@ function createFileItem(item, basePath) {
             ${item.size !== undefined ? `<div class="file-meta">${formatBytes(item.size)} | ${item.permissions || ''}</div>` : ''}
         </div>
         <div class="file-actions-btn">
-            ${!isDir ? `
+            ${!isDir && canRead ? `
                 <button class="btn btn-sm btn-primary" onclick="editFile('${itemPath}'); event.stopPropagation();">编辑</button>
+            ` : ''}
+            ${!isDir && canDownload ? `
                 <button class="btn btn-sm btn-secondary" onclick="downloadFile('${itemPath}'); event.stopPropagation();">下载</button>
             ` : ''}
-            ${item.name !== '..' ? `
+            ${item.name !== '..' && canDelete ? `
                 <button class="btn btn-sm btn-danger" onclick="deleteItem('${itemPath}'); event.stopPropagation();">删除</button>
             ` : ''}
         </div>
     `;
-    
-    if (isDir) {
+
+    if (isDir && canRead) {
         div.onclick = () => loadFiles(itemPath);
         div.style.cursor = 'pointer';
     }
-    
+
+    div.oncontextmenu = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        fileContextTarget = {
+            item,
+            itemPath,
+            isDir,
+            currentDir: normalizePath(basePath)
+        };
+        showFileContextMenu(event.clientX, event.clientY, false);
+    };
+
     return div;
+}
+
+function contextOpen() {
+    if (fileContextTarget && fileContextTarget.isDir) {
+        hideFileContextMenu();
+        loadFiles(fileContextTarget.itemPath);
+    }
+}
+
+function contextEdit() {
+    if (fileContextTarget && !fileContextTarget.isDir) {
+        hideFileContextMenu();
+        editFile(fileContextTarget.itemPath);
+    }
+}
+
+function contextDownload() {
+    if (fileContextTarget && !fileContextTarget.isDir) {
+        hideFileContextMenu();
+        downloadFile(fileContextTarget.itemPath);
+    }
+}
+
+function contextDelete() {
+    if (!fileContextTarget || !fileContextTarget.item) return;
+    hideFileContextMenu();
+    deleteItem(fileContextTarget.itemPath);
+}
+
+function contextRename() {
+    if (!fileContextTarget || !fileContextTarget.item) return;
+    const oldName = fileContextTarget.item.name;
+    const nextName = prompt(`请输入新名称（当前: ${oldName}）:`);
+    if (!nextName || nextName.trim() === '' || nextName.trim() === oldName) return;
+
+    const oldPath = fileContextTarget.itemPath;
+    const newPath = joinPath(fileContextTarget.currentDir, nextName.trim());
+
+    hideFileContextMenu();
+    renameItem(oldPath, newPath);
+}
+
+function contextCreateFile() {
+    hideFileContextMenu();
+    createFile();
+}
+
+function contextCreateFolder() {
+    hideFileContextMenu();
+    createFolder();
+}
+
+function contextUploadFile() {
+    hideFileContextMenu();
+    uploadFile();
 }
 
 async function editFile(path) {
@@ -708,6 +880,30 @@ async function deleteItem(path) {
     }
 }
 
+async function renameItem(oldPath, newPath) {
+    try {
+        const data = await apiCall('/api/files/rename', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                old_path: normalizePath(oldPath),
+                new_path: normalizePath(newPath)
+            })
+        });
+
+        if (data.success) {
+            alert('重命名成功');
+            loadFiles(currentPath);
+        } else {
+            alert('重命名失败: ' + (data.error || '未知错误'));
+        }
+    } catch (error) {
+        alert('重命名失败: ' + error.message);
+    }
+}
+
 function downloadFile(path) {
     window.open(`/api/files/download?path=${encodeURIComponent(path)}`, '_blank');
 }
@@ -716,7 +912,7 @@ function createFolder() {
     const name = prompt('输入文件夹名称:');
     if (!name) return;
     
-    const path = `${currentPath}/${name}`.replace('//', '/');
+    const path = joinPath(currentPath, name);
     
     fetch('/api/files/mkdir', {
         method: 'POST',
@@ -743,7 +939,7 @@ function createFile() {
     const name = prompt('输入文件名:');
     if (!name) return;
     
-    const path = `${currentPath}/${name}`.replace('//', '/');
+    const path = joinPath(currentPath, name);
     
     fetch('/api/files/write', {
         method: 'POST',
@@ -802,6 +998,8 @@ function uploadFile() {
 
 let panelUsersLoaded = false;
 let currentPanelUser = null;
+let panelPermissionDefinitions = [];
+let panelUsersCache = [];
 
 async function loadCurrentUserInfo() {
     try {
@@ -814,6 +1012,7 @@ async function loadCurrentUserInfo() {
             const role = data.user.is_admin ? '管理员' : '普通用户';
             currentUserInput.value = `${data.user.username} (${role})`;
         }
+        updateFileToolbar();
     } catch (error) {
         console.error('加载当前用户失败:', error);
     }
@@ -821,7 +1020,20 @@ async function loadCurrentUserInfo() {
 
 async function loadPanelUsersPage() {
     await loadCurrentUserInfo();
+    await loadPermissionDefinitions();
     await loadPanelUsers();
+    await loadAuditLogs();
+}
+
+async function loadPermissionDefinitions() {
+    try {
+        const data = await apiCall('/api/permissions/definitions');
+        if (data.success && Array.isArray(data.permissions)) {
+            panelPermissionDefinitions = data.permissions;
+        }
+    } catch (error) {
+        panelPermissionDefinitions = [];
+    }
 }
 
 async function loadPanelUsers() {
@@ -833,33 +1045,38 @@ async function loadPanelUsers() {
         const data = await apiCall('/api/panel-users');
         if (!data.success) {
             tipEl.textContent = data.error || '加载失败';
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:1rem;">暂无数据</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:1rem;">暂无数据</td></tr>';
             return;
         }
 
         panelUsersLoaded = true;
+        panelUsersCache = data.users || [];
         tipEl.textContent = `共 ${data.users.length} 个面板用户`;
 
         if (data.users.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:1rem;">暂无用户</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:1rem;">暂无用户</td></tr>';
             return;
         }
 
         tbody.innerHTML = data.users.map(user => {
             const role = user.is_admin ? '管理员' : '普通用户';
             const createdAt = user.created_at ? new Date(user.created_at).toLocaleString() : '-';
+            const permissionCount = Object.values(user.permissions || {}).filter(Boolean).length;
             const canDelete = currentPanelUser && currentPanelUser.username !== user.username;
             const deleteBtn = canDelete
                 ? `<button class="btn btn-sm btn-danger" onclick="deletePanelUser('${user.username}')">删除</button>`
                 : '';
+            const permissionBtn = `<button class="btn btn-sm" onclick="showPermissionsDialog('${user.username}')">权限</button>`;
 
             return `
                 <tr>
                     <td><strong>${user.username}</strong></td>
                     <td>${role}</td>
                     <td>${createdAt}</td>
+                    <td>已启用 ${permissionCount} 项</td>
                     <td>
                         <div class="btn-group">
+                            ${permissionBtn}
                             <button class="btn btn-sm" onclick="resetPanelUserPassword('${user.username}')">重置密码</button>
                             ${deleteBtn}
                         </div>
@@ -869,14 +1086,110 @@ async function loadPanelUsers() {
         }).join('');
     } catch (error) {
         tipEl.textContent = '加载失败: ' + error.message;
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:1rem;">加载失败</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:1rem;">加载失败</td></tr>';
+    }
+}
+
+async function loadAuditLogs() {
+    const tipEl = document.getElementById('audit-log-tip');
+    const tbody = document.getElementById('audit-log-table-body');
+    if (!tipEl || !tbody) return;
+
+    try {
+        const data = await apiCall('/api/audit-logs?limit=120');
+        if (!data.success) {
+            tipEl.textContent = data.error || '加载日志失败';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:1rem;">暂无数据</td></tr>';
+            return;
+        }
+
+        const logs = data.logs || [];
+        tipEl.textContent = `最近 ${logs.length} 条操作记录`;
+        if (logs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:1rem;">暂无日志</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = logs.map(log => `
+            <tr>
+                <td>${log.timestamp ? new Date(log.timestamp).toLocaleString() : '-'}</td>
+                <td>${log.username || '-'}</td>
+                <td>${log.action || '-'}</td>
+                <td title="${log.detail || ''}">${log.target || '-'}</td>
+                <td>${log.result || '-'}</td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        tipEl.textContent = '加载日志失败: ' + error.message;
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:1rem;">加载失败</td></tr>';
+    }
+}
+
+function closePermissionsModal() {
+    document.getElementById('permissions-modal').classList.remove('active');
+}
+
+function showPermissionsDialog(username) {
+    const user = panelUsersCache.find(u => u.username === username);
+    if (!user) return;
+
+    const definitions = panelPermissionDefinitions.length > 0
+        ? panelPermissionDefinitions
+        : Object.keys(user.permissions || {}).map(key => ({ key, label: key }));
+
+    const wrap = document.getElementById('permission-checkbox-list');
+    const modal = document.getElementById('permissions-modal');
+    const targetName = document.getElementById('permission-target-username');
+    if (!wrap || !modal || !targetName) return;
+
+    targetName.textContent = username;
+    modal.dataset.targetUser = username;
+    wrap.innerHTML = definitions.map(({ key, label }) => {
+        const checked = user.permissions && user.permissions[key] ? 'checked' : '';
+        return `
+            <label class="permission-item">
+                <input type="checkbox" data-permission-key="${key}" ${checked}>
+                <span>${label}</span>
+            </label>
+        `;
+    }).join('');
+
+    modal.classList.add('active');
+}
+
+async function submitPanelUserPermissions() {
+    const modal = document.getElementById('permissions-modal');
+    const username = modal.dataset.targetUser;
+    if (!username) return;
+
+    const permissions = {};
+    document.querySelectorAll('#permission-checkbox-list input[data-permission-key]').forEach((item) => {
+        permissions[item.dataset.permissionKey] = item.checked;
+    });
+
+    try {
+        const data = await apiCall('/api/panel-users/permissions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, permissions })
+        });
+        if (data.success) {
+            closePermissionsModal();
+            showMessage('权限保存成功', 'success');
+            await loadPanelUsers();
+            await loadCurrentUserInfo();
+        } else {
+            showMessage(data.error || '保存失败', 'error');
+        }
+    } catch (error) {
+        showMessage('保存失败: ' + error.message, 'error');
     }
 }
 
 async function showAddPanelUserDialog() {
     await loadCurrentUserInfo();
-    if (!currentPanelUser || !currentPanelUser.is_admin) {
-        showMessage('仅管理员可添加用户', 'warning');
+    if (!hasPanelPermission('panel_users.manage')) {
+        showMessage('无权限添加用户', 'warning');
         return;
     }
     document.getElementById('new-panel-username').value = '';

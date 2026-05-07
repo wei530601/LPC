@@ -24,10 +24,40 @@
                                         <th>用户名</th>
                                         <th>角色</th>
                                         <th>创建时间</th>
+                                        <th>权限摘要</th>
                                         <th>操作</th>
                                     </tr>
                                 </thead>
                                 <tbody id="panel-users-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-group">
+                    <div class="collapsible-header" onclick="toggleCollapse(this)">
+                        <div class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            <span>操作审计日志</span>
+                        </div>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="collapsible-body">
+                            <div class="user-header-buttons" style="margin-bottom: 1rem;">
+                                <button class="btn btn-sm" onclick="loadAuditLogs()">刷新日志</button>
+                            </div>
+                            <div id="audit-log-tip" class="stats" style="margin-bottom: 1rem;"></div>
+                            <table class="modern-table">
+                                <thead>
+                                    <tr>
+                                        <th>时间</th>
+                                        <th>用户</th>
+                                        <th>动作</th>
+                                        <th>目标</th>
+                                        <th>结果</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="audit-log-table-body"></tbody>
                             </table>
                         </div>
                     </div>
@@ -78,6 +108,23 @@
                     <div class="modal-footer">
                         <button class="btn" onclick="closeResetPasswordModal()">取消</button>
                         <button class="btn btn-primary" onclick="submitResetPanelPassword()">确认重置</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 权限编辑弹窗 -->
+            <div class="modal" id="permissions-modal">
+                <div class="modal-content" style="max-width: 520px;">
+                    <div class="modal-header">
+                        <h3>权限配置 — <span id="permission-target-username"></span></h3>
+                        <button class="modal-close" onclick="closePermissionsModal()">✕</button>
+                    </div>
+                    <div class="modal-body" style="padding:1.2rem 1.5rem;">
+                        <div id="permission-checkbox-list" class="permissions-grid"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn" onclick="closePermissionsModal()">取消</button>
+                        <button class="btn btn-primary" onclick="submitPanelUserPermissions()">保存权限</button>
                     </div>
                 </div>
             </div>

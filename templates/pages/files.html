@@ -3,9 +3,9 @@
                 <div class="page-header">
                     <h2>文件管理</h2>
                     <div class="file-actions">
-                        <button class="btn btn-sm" onclick="createFolder()">新建文件夹</button>
-                        <button class="btn btn-sm" onclick="createFile()">新建文件</button>
-                        <button class="btn btn-sm" onclick="uploadFile()">上传</button>
+                        <button class="btn btn-sm" id="btn-create-folder" onclick="createFolder()">新建文件夹</button>
+                        <button class="btn btn-sm" id="btn-create-file" onclick="createFile()">新建文件</button>
+                        <button class="btn btn-sm" id="btn-upload-file" onclick="uploadFile()">上传</button>
                     </div>
                 </div>
 
@@ -18,4 +18,6 @@
                         </div>
                     </div>
                 </div>
+
+                <div id="file-context-menu" class="file-context-menu"></div>
             </div>

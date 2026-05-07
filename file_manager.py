@@ -104,6 +104,27 @@ class FileManager:
             return {'success': True}
         except Exception as e:
             return {'error': str(e)}
+
+    def rename_path(self, old_path, new_path):
+        """重命名文件或目录"""
+        try:
+            old_full_path = os.path.join(self.root_path, old_path.lstrip('/'))
+            new_full_path = os.path.join(self.root_path, new_path.lstrip('/'))
+
+            if not self._is_safe_path(old_full_path) or not self._is_safe_path(new_full_path):
+                return {'error': '无权访问此路径'}
+
+            if not os.path.exists(old_full_path):
+                return {'error': '原路径不存在'}
+
+            if os.path.exists(new_full_path):
+                return {'error': '目标路径已存在'}
+
+            os.makedirs(os.path.dirname(new_full_path), exist_ok=True)
+            os.rename(old_full_path, new_full_path)
+            return {'success': True}
+        except Exception as e:
+            return {'error': str(e)}
     
     def get_file_path(self, path):
         """获取文件的完整路径（用于下载）"""

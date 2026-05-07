@@ -11,6 +11,47 @@ from config import Config
 
 class PanelUserStore:
     USERNAME_PATTERN = re.compile(r'^[a-zA-Z0-9_]{3,32}$')
+    PERMISSION_DEFAULTS = {
+        'files.read': False,
+        'files.write': False,
+        'files.delete': False,
+        'files.upload': False,
+        'files.download': False,
+        'files.rename': False,
+        'terminal.access': False,
+        'panel_users.manage': False,
+        'audit.read': False,
+    }
+    PERMISSION_LABELS = {
+        'files.read': '文件浏览',
+        'files.write': '文件写入/新建',
+        'files.delete': '文件删除',
+        'files.upload': '文件上传',
+        'files.download': '文件下载',
+        'files.rename': '文件重命名',
+        'terminal.access': '终端访问',
+        'panel_users.manage': '面板用户管理',
+        'audit.read': '审计日志查看',
+    }
+
+    @classmethod
+    def permission_definition_list(cls):
+        return [
+            {'key': key, 'label': cls.PERMISSION_LABELS.get(key, key)}
+            for key in cls.PERMISSION_DEFAULTS.keys()
+        ]
+
+    @classmethod
+    def build_permissions(cls, is_admin=False, permissions=None):
+        if bool(is_admin):
+            return {key: True for key in cls.PERMISSION_DEFAULTS.keys()}
+
+        normalized = dict(cls.PERMISSION_DEFAULTS)
+        if isinstance(permissions, dict):
+            for key in normalized.keys():
+                if key in permissions:
+                    normalized[key] = bool(permissions.get(key))
+        return normalized
 
     @classmethod
     def _default_data(cls):
@@ -21,6 +62,7 @@ class PanelUserStore:
                     'username': Config.DEFAULT_USERNAME,
                     'password_hash': generate_password_hash(Config.DEFAULT_PASSWORD),
                     'is_admin': True,
+                    'permissions': cls.build_permissions(is_admin=True),
                     'created_at': datetime.utcnow().isoformat()
                 }
             ]
@@ -92,6 +134,10 @@ class PanelUserStore:
             users.append({
                 'username': user.get('username'),
                 'is_admin': bool(user.get('is_admin', False)),
+                'permissions': cls.build_permissions(
+                    is_admin=bool(user.get('is_admin', False)),
+                    permissions=user.get('permissions', {})
+                ),
                 'created_at': user.get('created_at', '')
             })
         users.sort(key=lambda x: x['username'])
@@ -134,6 +180,7 @@ class PanelUserStore:
             'username': username,
             'password_hash': generate_password_hash(password),
             'is_admin': bool(is_admin),
+            'permissions': cls.build_permissions(is_admin=bool(is_admin)),
             'created_at': datetime.utcnow().isoformat()
         })
         cls._write_data(data)
@@ -176,12 +223,36 @@ class PanelUserStore:
                 return {'success': True}
         return {'success': False, 'error': '用户不存在'}
 
+    @classmethod
+    def set_permissions(cls, username, permissions):
+        cls._ensure_store()
+        data = cls._read_data()
+
+        for user in data['users']:
+            if user.get('username') == username:
+                user['permissions'] = cls.build_permissions(
+                    is_admin=bool(user.get('is_admin', False)),
+                    permissions=permissions if isinstance(permissions, dict) else {}
+                )
+                cls._write_data(data)
+                return {'success': True}
+        return {'success': False, 'error': '用户不存在'}
+
 
 class User(UserMixin):
-    def __init__(self, username, is_admin=False):
+    def __init__(self, username, is_admin=False, permissions=None):
         self.id = username
         self.username = username
         self.is_admin = bool(is_admin)
+        self.permissions = PanelUserStore.build_permissions(
+            is_admin=self.is_admin,
+            permissions=permissions if isinstance(permissions, dict) else {}
+        )
+
+    def has_permission(self, key):
+        if self.is_admin:
+            return True
+        return bool(self.permissions.get(key, False))
 
     @staticmethod
     def verify(username, password):
@@ -190,11 +261,19 @@ class User(UserMixin):
         user_data = PanelUserStore.get_user(username)
         if not user_data:
             return None
-        return User(username, user_data.get('is_admin', False))
+        return User(
+            username,
+            user_data.get('is_admin', False),
+            user_data.get('permissions', {})
+        )
 
     @staticmethod
     def get(user_id):
         user_data = PanelUserStore.get_user(user_id)
         if not user_data:
             return None
-        return User(user_data.get('username'), user_data.get('is_admin', False))
+        return User(
+            user_data.get('username'),
+            user_data.get('is_admin', False),
+            user_data.get('permissions', {})
+        )

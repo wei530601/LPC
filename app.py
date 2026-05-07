@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, jsonify, send_file, redirect,
 from flask_socketio import SocketIO, emit
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 import os
+import json
 import pty
 import subprocess
 import select
@@ -10,6 +11,7 @@ import struct
 import fcntl
 import shlex
 import threading
+from datetime import datetime
 
 from config import Config
 from auth import User, PanelUserStore
@@ -53,6 +55,48 @@ ALERT_THRESHOLDS = {
 # 存储终端会话
 terminals = {}
 
+
+def has_permission(permission_key):
+    if not getattr(current_user, 'is_authenticated', False):
+        return False
+    if hasattr(current_user, 'has_permission'):
+        return bool(current_user.has_permission(permission_key))
+    return bool(getattr(current_user, 'is_admin', False))
+
+
+def get_client_ip():
+    xff = request.headers.get('X-Forwarded-For', '')
+    if xff:
+        return xff.split(',')[0].strip()
+    return request.remote_addr or ''
+
+
+def append_audit_log(action, result='success', target='', detail=''):
+    username = getattr(current_user, 'username', 'anonymous') if getattr(current_user, 'is_authenticated', False) else 'anonymous'
+    entry = {
+        'timestamp': datetime.utcnow().isoformat(),
+        'username': username,
+        'ip': get_client_ip(),
+        'action': action,
+        'result': result,
+        'target': target,
+        'detail': detail,
+        'path': request.path,
+        'method': request.method,
+    }
+
+    parent = os.path.dirname(Config.AUDIT_LOG_FILE)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+
+    with open(Config.AUDIT_LOG_FILE, 'a', encoding='utf-8') as f:
+        f.write(json.dumps(entry, ensure_ascii=True) + '\n')
+
+
+def deny_with_audit(permission_key, action):
+    append_audit_log(action, result='denied', detail=f'permission:{permission_key}')
+    return jsonify({'success': False, 'error': '权限不足'}), 403
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.get(user_id)
@@ -62,14 +106,16 @@ def load_user(user_id):
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        data = request.get_json()
+        data = request.get_json() or {}
         username = data.get('username')
         password = data.get('password')
         
         user = User.verify(username, password)
         if user:
             login_user(user)
+            append_audit_log('auth.login', target=username)
             return jsonify({'success': True})
+        append_audit_log('auth.login', result='failed', target=username or '')
         return jsonify({'success': False, 'error': '用户名或密码错误'}), 401
     
     return render_template('login.html')
@@ -77,6 +123,7 @@ def login():
 @app.route('/logout')
 @login_required
 def logout():
+    append_audit_log('auth.logout', target=current_user.username)
     logout_user()
     return redirect(url_for('login'))
 
@@ -87,22 +134,31 @@ def auth_me():
         'success': True,
         'user': {
             'username': current_user.username,
-            'is_admin': bool(getattr(current_user, 'is_admin', False))
+            'is_admin': bool(getattr(current_user, 'is_admin', False)),
+            'permissions': getattr(current_user, 'permissions', {})
         }
     })
+
+
+@app.route('/api/permissions/definitions')
+@login_required
+def permission_definitions():
+    if not has_permission('panel_users.manage'):
+        return deny_with_audit('panel_users.manage', 'permissions.definitions')
+    return jsonify({'success': True, 'permissions': PanelUserStore.permission_definition_list()})
 
 @app.route('/api/panel-users')
 @login_required
 def list_panel_users():
-    if not getattr(current_user, 'is_admin', False):
-        return jsonify({'success': False, 'error': '仅管理员可查看用户列表'}), 403
+    if not has_permission('panel_users.manage'):
+        return deny_with_audit('panel_users.manage', 'panel_users.list')
     return jsonify({'success': True, 'users': PanelUserStore.list_users()})
 
 @app.route('/api/panel-users/add', methods=['POST'])
 @login_required
 def add_panel_user():
-    if not getattr(current_user, 'is_admin', False):
-        return jsonify({'success': False, 'error': '仅管理员可添加用户'}), 403
+    if not has_permission('panel_users.manage'):
+        return deny_with_audit('panel_users.manage', 'panel_users.add')
 
     data = request.get_json() or {}
     username = (data.get('username') or '').strip()
@@ -110,14 +166,20 @@ def add_panel_user():
     is_admin = bool(data.get('is_admin', False))
 
     result = PanelUserStore.add_user(username, password, is_admin)
+    append_audit_log(
+        'panel_users.add',
+        result='success' if result.get('success') else 'failed',
+        target=username,
+        detail='is_admin=1' if is_admin else 'is_admin=0'
+    )
     status_code = 200 if result.get('success') else 400
     return jsonify(result), status_code
 
 @app.route('/api/panel-users/delete', methods=['POST'])
 @login_required
 def delete_panel_user():
-    if not getattr(current_user, 'is_admin', False):
-        return jsonify({'success': False, 'error': '仅管理员可删除用户'}), 403
+    if not has_permission('panel_users.manage'):
+        return deny_with_audit('panel_users.manage', 'panel_users.delete')
 
     data = request.get_json() or {}
     username = (data.get('username') or '').strip()
@@ -128,14 +190,19 @@ def delete_panel_user():
         return jsonify({'success': False, 'error': '不能删除当前登录账号'}), 400
 
     result = PanelUserStore.delete_user(username)
+    append_audit_log(
+        'panel_users.delete',
+        result='success' if result.get('success') else 'failed',
+        target=username,
+    )
     status_code = 200 if result.get('success') else 400
     return jsonify(result), status_code
 
 @app.route('/api/panel-users/password', methods=['POST'])
 @login_required
 def reset_panel_user_password():
-    if not getattr(current_user, 'is_admin', False):
-        return jsonify({'success': False, 'error': '仅管理员可重置密码'}), 403
+    if not has_permission('panel_users.manage'):
+        return deny_with_audit('panel_users.manage', 'panel_users.password_reset')
 
     data = request.get_json() or {}
     username = (data.get('username') or '').strip()
@@ -144,6 +211,34 @@ def reset_panel_user_password():
         return jsonify({'success': False, 'error': '未指定用户名'}), 400
 
     result = PanelUserStore.set_password(username, password)
+    append_audit_log(
+        'panel_users.password_reset',
+        result='success' if result.get('success') else 'failed',
+        target=username,
+    )
+    status_code = 200 if result.get('success') else 400
+    return jsonify(result), status_code
+
+
+@app.route('/api/panel-users/permissions', methods=['POST'])
+@login_required
+def update_panel_user_permissions():
+    if not has_permission('panel_users.manage'):
+        return deny_with_audit('panel_users.manage', 'panel_users.permissions_update')
+
+    data = request.get_json() or {}
+    username = (data.get('username') or '').strip()
+    permissions = data.get('permissions') or {}
+
+    if not username:
+        return jsonify({'success': False, 'error': '未指定用户名'}), 400
+
+    result = PanelUserStore.set_permissions(username, permissions)
+    append_audit_log(
+        'panel_users.permissions_update',
+        result='success' if result.get('success') else 'failed',
+        target=username,
+    )
     status_code = 200 if result.get('success') else 400
     return jsonify(result), status_code
 
@@ -155,11 +250,47 @@ def change_own_panel_user_password():
     new_password = data.get('new_password') or ''
 
     if not PanelUserStore.verify_password(current_user.username, current_password):
+        append_audit_log('panel_users.password_change_self', result='failed', target=current_user.username)
         return jsonify({'success': False, 'error': '当前密码错误'}), 400
 
     result = PanelUserStore.set_password(current_user.username, new_password)
+    append_audit_log(
+        'panel_users.password_change_self',
+        result='success' if result.get('success') else 'failed',
+        target=current_user.username,
+    )
     status_code = 200 if result.get('success') else 400
     return jsonify(result), status_code
+
+
+@app.route('/api/audit-logs')
+@login_required
+def list_audit_logs():
+    if not has_permission('audit.read'):
+        return deny_with_audit('audit.read', 'audit.list')
+
+    limit = request.args.get('limit', 200, type=int)
+    limit = max(1, min(limit, 1000))
+
+    if not os.path.exists(Config.AUDIT_LOG_FILE):
+        return jsonify({'success': True, 'logs': []})
+
+    logs = []
+    try:
+        with open(Config.AUDIT_LOG_FILE, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        for line in reversed(lines[-limit:]):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                logs.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    except OSError as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+    return jsonify({'success': True, 'logs': logs})
 
 # ============ 主页面路由 ============
 
@@ -933,12 +1064,21 @@ def unlock_user():
 @app.route('/api/files/list')
 @login_required
 def list_files():
+    if not has_permission('files.read'):
+        return deny_with_audit('files.read', 'files.list')
+
     path = request.args.get('path', '/')
-    return jsonify(file_manager.list_directory(path))
+    result = file_manager.list_directory(path)
+    if result.get('error'):
+        append_audit_log('files.list', result='failed', target=path, detail=result.get('error', ''))
+    return jsonify(result)
 
 @app.route('/api/files/home')
 @login_required
 def files_home_path():
+    if not has_permission('files.read'):
+        return deny_with_audit('files.read', 'files.home')
+
     username = getattr(current_user, 'username', None)
     candidates = []
 
@@ -963,14 +1103,27 @@ def files_home_path():
 @app.route('/api/files/read')
 @login_required
 def read_file():
+    if not has_permission('files.read'):
+        return deny_with_audit('files.read', 'files.read')
+
     path = request.args.get('path')
     if not path:
         return jsonify({'error': '未指定文件路径'}), 400
-    return jsonify(file_manager.read_file(path))
+    result = file_manager.read_file(path)
+    append_audit_log(
+        'files.read',
+        result='success' if not result.get('error') else 'failed',
+        target=path,
+        detail=result.get('error', '')
+    )
+    return jsonify(result)
 
 @app.route('/api/files/write', methods=['POST'])
 @login_required
 def write_file():
+    if not has_permission('files.write'):
+        return deny_with_audit('files.write', 'files.write')
+
     data = request.get_json()
     path = data.get('path')
     content = data.get('content')
@@ -978,39 +1131,93 @@ def write_file():
     if not path:
         return jsonify({'error': '未指定文件路径'}), 400
     
-    return jsonify(file_manager.write_file(path, content))
+    result = file_manager.write_file(path, content)
+    append_audit_log(
+        'files.write',
+        result='success' if result.get('success') else 'failed',
+        target=path,
+        detail=result.get('error', '')
+    )
+    return jsonify(result)
 
 @app.route('/api/files/delete', methods=['POST'])
 @login_required
 def delete_file():
+    if not has_permission('files.delete'):
+        return deny_with_audit('files.delete', 'files.delete')
+
     data = request.get_json()
     path = data.get('path')
     
     if not path:
         return jsonify({'error': '未指定路径'}), 400
     
-    return jsonify(file_manager.delete_file(path))
+    result = file_manager.delete_file(path)
+    append_audit_log(
+        'files.delete',
+        result='success' if result.get('success') else 'failed',
+        target=path,
+        detail=result.get('error', '')
+    )
+    return jsonify(result)
 
 @app.route('/api/files/mkdir', methods=['POST'])
 @login_required
 def create_directory():
+    if not has_permission('files.write'):
+        return deny_with_audit('files.write', 'files.mkdir')
+
     data = request.get_json()
     path = data.get('path')
     
     if not path:
         return jsonify({'error': '未指定路径'}), 400
     
-    return jsonify(file_manager.create_directory(path))
+    result = file_manager.create_directory(path)
+    append_audit_log(
+        'files.mkdir',
+        result='success' if result.get('success') else 'failed',
+        target=path,
+        detail=result.get('error', '')
+    )
+    return jsonify(result)
+
+
+@app.route('/api/files/rename', methods=['POST'])
+@login_required
+def rename_file():
+    if not has_permission('files.rename'):
+        return deny_with_audit('files.rename', 'files.rename')
+
+    data = request.get_json() or {}
+    old_path = data.get('old_path')
+    new_path = data.get('new_path')
+
+    if not old_path or not new_path:
+        return jsonify({'error': '缺少重命名参数'}), 400
+
+    result = file_manager.rename_path(old_path, new_path)
+    append_audit_log(
+        'files.rename',
+        result='success' if result.get('success') else 'failed',
+        target=f'{old_path} -> {new_path}',
+        detail=result.get('error', '')
+    )
+    return jsonify(result)
 
 @app.route('/api/files/download')
 @login_required
 def download_file():
+    if not has_permission('files.download'):
+        return deny_with_audit('files.download', 'files.download')
+
     path = request.args.get('path')
     if not path:
         return jsonify({'error': '未指定文件路径'}), 400
     
     file_path = file_manager.get_file_path(path)
     if file_path:
+        append_audit_log('files.download', target=path)
         return send_file(file_path, as_attachment=True)
     
     return jsonify({'error': '文件不存在'}), 404
@@ -1018,6 +1225,9 @@ def download_file():
 @app.route('/api/files/upload', methods=['POST'])
 @login_required
 def upload_file():
+    if not has_permission('files.upload'):
+        return deny_with_audit('files.upload', 'files.upload')
+
     if 'file' not in request.files:
         return jsonify({'error': '未上传文件'}), 400
     
@@ -1029,6 +1239,13 @@ def upload_file():
     
     target_path = os.path.join(path, file.filename)
     result = file_manager.write_file(target_path, file.read().decode('utf-8', errors='ignore'))
+
+    append_audit_log(
+        'files.upload',
+        result='success' if result.get('success') else 'failed',
+        target=target_path,
+        detail=result.get('error', '')
+    )
     
     return jsonify(result)
 
@@ -1073,6 +1290,10 @@ def terminal_connect():
 def start_terminal(data):
     if not current_user.is_authenticated:
         return
+    if not has_permission('terminal.access'):
+        append_audit_log('terminal.start', result='denied', detail='permission:terminal.access')
+        emit('terminal_output', {'output': '\r\n权限不足，无法打开终端\r\n'})
+        return
     
     sid = request.sid
     
@@ -1115,6 +1336,8 @@ def start_terminal(data):
 def terminal_input(data):
     if not current_user.is_authenticated:
         return
+    if not has_permission('terminal.access'):
+        return
     
     sid = request.sid
     
@@ -1128,6 +1351,8 @@ def terminal_input(data):
 @socketio.on('terminal_resize', namespace='/terminal')
 def terminal_resize(data):
     if not current_user.is_authenticated:
+        return
+    if not has_permission('terminal.access'):
         return
     
     sid = request.sid

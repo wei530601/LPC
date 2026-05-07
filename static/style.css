@@ -616,6 +616,37 @@ body {
     gap: 0.5rem;
 }
 
+.file-context-menu {
+    position: fixed;
+    display: none;
+    min-width: 160px;
+    background: #ffffff;
+    border: 1px solid #d6dde3;
+    border-radius: 4px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+    z-index: 2200;
+    padding: 0.35rem;
+}
+
+.file-context-menu.active {
+    display: block;
+}
+
+.file-context-menu button {
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: transparent;
+    color: #2c3e50;
+    border-radius: 3px;
+    padding: 0.45rem 0.55rem;
+    cursor: pointer;
+}
+
+.file-context-menu button:hover {
+    background: #eef3f7;
+}
+
 /* 模态框 */
 .modal {
     display: none;
@@ -678,6 +709,26 @@ body {
     display: flex;
     justify-content: flex-end;
     gap: 0.5rem;
+}
+
+.permissions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.65rem;
+}
+
+.permission-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem;
+    border: 1px solid #ecf0f1;
+    border-radius: 4px;
+    color: #2c3e50;
+}
+
+.permission-item input {
+    width: auto;
 }
 
 #file-editor {
