@@ -872,23 +872,33 @@ async function showAddPanelUserDialog() {
         showMessage('仅管理员可添加用户', 'warning');
         return;
     }
+    document.getElementById('new-panel-username').value = '';
+    document.getElementById('new-panel-password').value = '';
+    document.getElementById('new-panel-is-admin').checked = false;
+    document.getElementById('add-panel-user-modal').classList.add('active');
+    setTimeout(() => document.getElementById('new-panel-username').focus(), 100);
+}
 
-    const username = prompt('请输入新用户名（3-32位，字母/数字/下划线）:');
-    if (!username) return;
+function closeAddPanelUserModal() {
+    document.getElementById('add-panel-user-modal').classList.remove('active');
+}
 
-    const password = prompt('请输入初始密码（至少6位）:');
-    if (!password) return;
+async function submitAddPanelUser() {
+    const username = document.getElementById('new-panel-username').value.trim();
+    const password = document.getElementById('new-panel-password').value;
+    const is_admin = document.getElementById('new-panel-is-admin').checked;
 
-    const asAdmin = confirm('是否设为管理员账号？');
+    if (!username) { showMessage('请输入用户名', 'warning'); return; }
+    if (!password) { showMessage('请输入密码', 'warning'); return; }
 
     try {
         const data = await apiCall('/api/panel-users/add', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: username.trim(), password, is_admin: asAdmin })
+            body: JSON.stringify({ username, password, is_admin })
         });
-
         if (data.success) {
+            closeAddPanelUserModal();
             showMessage('添加用户成功', 'success');
             loadPanelUsers();
         } else {
@@ -920,9 +930,24 @@ async function deletePanelUser(username) {
     }
 }
 
-async function resetPanelUserPassword(username) {
-    const password = prompt(`请输入 ${username} 的新密码（至少6位）:`);
-    if (!password) return;
+function resetPanelUserPassword(username) {
+    document.getElementById('reset-target-username').textContent = username;
+    document.getElementById('reset-panel-new-password').value = '';
+    document.getElementById('reset-panel-password-modal').dataset.targetUser = username;
+    document.getElementById('reset-panel-password-modal').classList.add('active');
+    setTimeout(() => document.getElementById('reset-panel-new-password').focus(), 100);
+}
+
+function closeResetPasswordModal() {
+    document.getElementById('reset-panel-password-modal').classList.remove('active');
+}
+
+async function submitResetPanelPassword() {
+    const modal = document.getElementById('reset-panel-password-modal');
+    const username = modal.dataset.targetUser;
+    const password = document.getElementById('reset-panel-new-password').value;
+
+    if (!password) { showMessage('请输入新密码', 'warning'); return; }
 
     try {
         const data = await apiCall('/api/panel-users/password', {
@@ -930,8 +955,8 @@ async function resetPanelUserPassword(username) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password })
         });
-
         if (data.success) {
+            closeResetPasswordModal();
             showMessage('密码重置成功', 'success');
         } else {
             showMessage(data.error || '重置失败', 'error');

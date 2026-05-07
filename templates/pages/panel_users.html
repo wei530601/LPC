@@ -33,3 +33,51 @@
                     </div>
                 </div>
             </div>
+
+            <!-- 添加面板用户弹窗 -->
+            <div class="modal" id="add-panel-user-modal">
+                <div class="modal-content" style="max-width:420px">
+                    <div class="modal-header">
+                        <h3>添加面板用户</h3>
+                        <button class="modal-close" onclick="closeAddPanelUserModal()">✕</button>
+                    </div>
+                    <div class="modal-body" style="padding:1.2rem 1.5rem">
+                        <div class="form-group" style="margin-bottom:1rem">
+                            <label>用户名（3-32位，字母/数字/下划线）</label>
+                            <input type="text" id="new-panel-username" class="form-input" placeholder="请输入用户名" autocomplete="off">
+                        </div>
+                        <div class="form-group" style="margin-bottom:1rem">
+                            <label>初始密码（至少6位）</label>
+                            <input type="password" id="new-panel-password" class="form-input" placeholder="请输入密码">
+                        </div>
+                        <div class="form-group" style="display:flex;align-items:center;gap:.6rem">
+                            <input type="checkbox" id="new-panel-is-admin" style="width:16px;height:16px;cursor:pointer">
+                            <label for="new-panel-is-admin" style="margin:0;cursor:pointer">设为管理员</label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn" onclick="closeAddPanelUserModal()">取消</button>
+                        <button class="btn btn-primary" onclick="submitAddPanelUser()">确认添加</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 重置密码弹窗 -->
+            <div class="modal" id="reset-panel-password-modal">
+                <div class="modal-content" style="max-width:380px">
+                    <div class="modal-header">
+                        <h3>重置密码 — <span id="reset-target-username"></span></h3>
+                        <button class="modal-close" onclick="closeResetPasswordModal()">✕</button>
+                    </div>
+                    <div class="modal-body" style="padding:1.2rem 1.5rem">
+                        <div class="form-group">
+                            <label>新密码（至少6位）</label>
+                            <input type="password" id="reset-panel-new-password" class="form-input" placeholder="请输入新密码">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn" onclick="closeResetPasswordModal()">取消</button>
+                        <button class="btn btn-primary" onclick="submitResetPanelPassword()">确认重置</button>
+                    </div>
+                </div>
+            </div>
