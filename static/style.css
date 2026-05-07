@@ -1161,12 +1161,17 @@ body {
     .sidebar-header h1,
     .logo-icon,
     .nav-item span:not(.nav-icon),
+    .nav-group-title,
     .sidebar-footer {
         display: none;
     }
 
     .nav-item {
         justify-content: center;
+    }
+
+    .nav-sub-item {
+        padding-left: 0.75rem;
     }
 
     .main-content {
@@ -1442,6 +1447,23 @@ body {
 
 .nav-item span {
     font-size: 0.95rem;
+}
+
+.nav-group-title {
+    padding: 0.75rem 1.5rem 0.4rem;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.8rem;
+    letter-spacing: 0.04em;
+}
+
+.nav-submenu {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.nav-sub-item {
+    padding-left: 2.3rem;
 }
 
 /* 移除图标相关样式 */
@@ -1761,6 +1783,10 @@ body.light-theme .nav-item:hover {
 body.light-theme .nav-item.active {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: #fff;
+}
+
+body.light-theme .nav-group-title {
+    color: #6b7280;
 }
 
 body.light-theme .main-content {
