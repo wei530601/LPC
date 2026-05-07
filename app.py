@@ -854,6 +854,30 @@ def list_files():
     path = request.args.get('path', '/')
     return jsonify(file_manager.list_directory(path))
 
+@app.route('/api/files/home')
+@login_required
+def files_home_path():
+    username = getattr(current_user, 'username', None)
+    candidates = []
+
+    if username:
+        candidates.append(os.path.expanduser(f'~{username}'))
+
+    candidates.extend([
+        os.path.expanduser('~'),
+        '/home/pi',
+        '/home',
+        '/'
+    ])
+
+    home_path = '/'
+    for candidate in candidates:
+        if candidate and os.path.isdir(candidate):
+            home_path = candidate
+            break
+
+    return jsonify({'success': True, 'home_path': home_path})
+
 @app.route('/api/files/read')
 @login_required
 def read_file():

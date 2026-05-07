@@ -8,7 +8,7 @@ class Config:
     DEFAULT_PASSWORD = 'pi-panel'
     
     # 文件管理
-    FILE_ROOT = '/home/pi'
+    FILE_ROOT = '/'
     UPLOAD_FOLDER = '/tmp/uploads'
     MAX_CONTENT_LENGTH = 100 * 1024 * 1024  # 100MB
     

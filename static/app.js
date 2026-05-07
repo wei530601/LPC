@@ -137,7 +137,7 @@ function switchToPage(page) {
     } else if (page === 'terminal') {
         initTerminal();
     } else if (page === 'files') {
-        loadFiles('/');
+        initFilesPage();
     } else if (page === 'settings') {
         loadSystemInfo();
         applySettings();
@@ -484,6 +484,34 @@ function initTerminal() {
 
 let currentPath = '/';
 let editingFile = null;
+let filesHomePath = '/home/pi';
+let filesInitialized = false;
+
+function escapePathForOnclick(path) {
+    return path.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+async function getFilesHomePath() {
+    try {
+        const data = await apiCall('/api/files/home');
+        if (data && data.success && data.home_path) {
+            filesHomePath = data.home_path;
+        }
+    } catch (error) {
+        console.warn('获取文件首页路径失败，使用默认路径:', error);
+    }
+    return filesHomePath;
+}
+
+async function initFilesPage() {
+    if (!filesInitialized) {
+        const homePath = await getFilesHomePath();
+        filesInitialized = true;
+        loadFiles(homePath);
+        return;
+    }
+    loadFiles(currentPath || filesHomePath || '/');
+}
 
 async function loadFiles(path) {
     currentPath = path;
@@ -526,16 +554,23 @@ async function loadFiles(path) {
 function updateBreadcrumb(path) {
     const breadcrumb = document.getElementById('breadcrumb');
     const parts = path.split('/').filter(p => p);
-    
-    let html = '<a href="#" onclick="loadFiles(\'/\'); return false;">根目录</a>';
-    let currentPath = '';
-    
-    parts.forEach((part, index) => {
-        currentPath += '/' + part;
-        html += ' / ';
-        html += `<a href="#" onclick="loadFiles('${currentPath}'); return false;">${part}</a>`;
+
+    let html = `
+        <div class="breadcrumb-nav">
+            <a class="breadcrumb-btn" href="#" onclick="loadFiles('/'); return false;">根目录 /</a>
+            <a class="breadcrumb-btn" href="#" onclick="loadFiles('${escapePathForOnclick(filesHomePath)}'); return false;">用户目录 ${filesHomePath}</a>
+        </div>
+        <div class="breadcrumb-path">
+            当前位置: <a href="#" onclick="loadFiles('/'); return false;">/</a>
+    `;
+
+    let pathAccumulator = '';
+    parts.forEach((part) => {
+        pathAccumulator += '/' + part;
+        html += ` / <a href="#" onclick="loadFiles('${escapePathForOnclick(pathAccumulator)}'); return false;">${part}</a>`;
     });
-    
+
+    html += '</div>';
     breadcrumb.innerHTML = html;
 }
 
@@ -544,7 +579,13 @@ function createFileItem(item, basePath) {
     div.className = 'file-item';
     
     const isDir = item.type === 'directory';
-    const icon = isDir ? '<img src="/static/images/folder.svg" class="file-item-icon">' : '<img src="/static/images/file.svg" class="file-item-icon">';
+    if (isDir) {
+        div.classList.add('is-directory');
+    }
+
+    const icon = isDir
+        ? '<img src="/static/images/folder.svg" class="file-item-icon file-item-icon-folder" alt="文件夹">'
+        : '<img src="/static/images/file.svg" class="file-item-icon file-item-icon-file" alt="文件">';
     const itemPath = item.name === '..' ? basePath.split('/').slice(0, -1).join('/') || '/' : 
                      `${basePath}/${item.name}`.replace('//', '/');
     

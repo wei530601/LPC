@@ -491,6 +491,36 @@ body {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+.breadcrumb-nav {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.breadcrumb-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.6rem;
+    border: 1px solid #d6dde3;
+    border-radius: 3px;
+    background: #f7f9fb;
+    color: #2c3e50;
+    text-decoration: none;
+    font-size: 0.85rem;
+}
+
+.breadcrumb-btn:hover {
+    background: #eef3f7;
+    text-decoration: none;
+}
+
+.breadcrumb-path {
+    color: #5c6b77;
+    font-size: 0.9rem;
+}
+
 .breadcrumb a {
     color: #3498db;
     text-decoration: none;
@@ -511,8 +541,11 @@ body {
     align-items: center;
     padding: 0.75rem;
     border-bottom: 1px solid #ecf0f1;
-    cursor: pointer;
     transition: background 0.3s;
+}
+
+.file-item.is-directory {
+    cursor: pointer;
 }
 
 .file-item:hover {
@@ -530,6 +563,14 @@ body {
     width: 24px;
     height: 24px;
     opacity: 0.7;
+}
+
+.file-item-icon-folder {
+    opacity: 1;
+}
+
+.file-item-icon-file {
+    opacity: 0.78;
 }
 
 .file-info {
@@ -1330,8 +1371,7 @@ body {
 }
 
 /* 移除图标相关样式 */
-.nav-icon,
-.file-item-icon {
+.nav-icon {
     display: none;
 }
 
