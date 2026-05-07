@@ -3,6 +3,7 @@ from flask_socketio import SocketIO, emit
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 import os
 import json
+import mimetypes
 import pty
 import subprocess
 import select
@@ -1271,6 +1272,24 @@ def download_file():
     
     return jsonify({'error': '文件不存在'}), 404
 
+@app.route('/api/files/preview')
+@login_required
+def preview_file():
+    if not has_permission('files.read'):
+        return deny_with_audit('files.read', 'files.preview')
+
+    path = request.args.get('path')
+    if not path:
+        return jsonify({'error': '未指定文件路径'}), 400
+
+    file_path = file_manager.get_file_path(path)
+    if not file_path:
+        return jsonify({'error': '文件不存在'}), 404
+
+    guessed_mime, _ = mimetypes.guess_type(file_path)
+    append_audit_log('files.preview', target=path)
+    return send_file(file_path, as_attachment=False, mimetype=guessed_mime or 'application/octet-stream')
+
 @app.route('/api/files/upload', methods=['POST'])
 @login_required
 def upload_file():
@@ -1287,7 +1306,7 @@ def upload_file():
         return jsonify({'error': '未选择文件'}), 400
     
     target_path = os.path.join(path, file.filename)
-    result = file_manager.write_file(target_path, file.read().decode('utf-8', errors='ignore'))
+    result = file_manager.write_file_bytes(target_path, file.read())
 
     append_audit_log(
         'files.upload',

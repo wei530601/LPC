@@ -544,58 +544,39 @@ function initTerminal() {
 
 let currentPath = '/';
 let editingFile = null;
+let previewingFile = null;
 let filesHomePath = '/home/pi';
 let filesInitialized = false;
 let fileContextTarget = null;
 let filePathHistory = [];
 let filePathHistoryIndex = -1;
 
-// Monaco editor state
-let monacoEditorInstance = null;
-let monacoLoadCbs = [];
-let monacoIsLoading = false;
-
-// ==================== 文件类型检测 ====================
-const FILE_LANG_MAP = {
-    py:'python', pyw:'python',
-    js:'javascript', mjs:'javascript', cjs:'javascript', jsx:'javascript',
-    ts:'typescript', tsx:'typescript',
-    html:'html', htm:'html', xhtml:'html',
-    css:'css', scss:'scss', sass:'scss', less:'less',
-    json:'json', jsonc:'json',
-    xml:'xml',
-    yaml:'yaml', yml:'yaml',
-    toml:'ini', ini:'ini', cfg:'ini', conf:'ini', env:'ini',
-    sh:'shell', bash:'shell', zsh:'shell', fish:'shell',
-    c:'c', h:'c', cpp:'cpp', cc:'cpp', cxx:'cpp', hpp:'cpp',
-    cs:'csharp', java:'java', kt:'kotlin', swift:'swift',
-    rs:'rust', go:'go', rb:'ruby',
-    php:'php', lua:'lua', sql:'sql',
-    dockerfile:'dockerfile',
-    md:'markdown', markdown:'markdown', rst:'restructuredtext',
-    txt:'plaintext', log:'plaintext', text:'plaintext', csv:'plaintext',
-};
-const IMAGE_EXTS = new Set(['png','jpg','jpeg','gif','webp','svg','bmp','ico','tiff','tif']);
-const VIDEO_EXTS = new Set(['mp4','webm','ogv','mov','avi','mkv']);
-const AUDIO_EXTS = new Set(['mp3','wav','flac','aac','m4a','ogg','oga','opus']);
-
-function getFileExt(name) {
-    const lower = name.toLowerCase();
-    if (lower === 'dockerfile' || lower === 'makefile') return lower;
-    const dot = lower.lastIndexOf('.');
-    return dot >= 0 ? lower.slice(dot + 1) : '';
-}
-function getFileLang(name) { return FILE_LANG_MAP[getFileExt(name)] || 'plaintext'; }
-function isTextFile(name) { const e = getFileExt(name); return e in FILE_LANG_MAP; }
-function isImageFile(name) { return IMAGE_EXTS.has(getFileExt(name)); }
-function isVideoFile(name) { return VIDEO_EXTS.has(getFileExt(name)); }
-function isAudioFile(name) { return AUDIO_EXTS.has(getFileExt(name)); }
-function isPdfFile(name) { return getFileExt(name) === 'pdf'; }
-function isPreviewMedia(name) { return isImageFile(name) || isVideoFile(name) || isAudioFile(name) || isPdfFile(name); }
-
+const TEXT_PREVIEW_EXTS = new Set([
+    'txt', 'md', 'json', 'yaml', 'yml', 'ini', 'conf', 'cfg', 'csv', 'log',
+    'py', 'js', 'ts', 'html', 'css', 'sh', 'bash', 'zsh', 'xml', 'toml'
+]);
+const IMAGE_PREVIEW_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg']);
+const AUDIO_PREVIEW_EXTS = new Set(['mp3', 'wav', 'ogg', 'm4a', 'flac']);
+const VIDEO_PREVIEW_EXTS = new Set(['mp4', 'webm', 'mov', 'avi', 'mkv']);
+const IFRAME_PREVIEW_EXTS = new Set(['pdf']);
 
 function escapePathForOnclick(path) {
     return path.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+function getFileExtension(filename) {
+    const parts = (filename || '').toLowerCase().split('.');
+    if (parts.length < 2) return '';
+    return parts.pop();
+}
+
+function canPreviewFile(filename) {
+    const ext = getFileExtension(filename);
+    return TEXT_PREVIEW_EXTS.has(ext)
+        || IMAGE_PREVIEW_EXTS.has(ext)
+        || AUDIO_PREVIEW_EXTS.has(ext)
+        || VIDEO_PREVIEW_EXTS.has(ext)
+        || IFRAME_PREVIEW_EXTS.has(ext);
 }
 
 async function getFilesHomePath() {
@@ -802,9 +783,8 @@ function showFileContextMenu(x, y, isBlankArea = false) {
         if (target.isDir && target.item && target.item.name !== '..' && canRead) {
             actions.push(['打开', 'contextOpen']);
         }
-        if (!target.isDir && canRead && !isPreviewMedia(target.item.name)) actions.push(['编辑', 'contextEdit']);
-        if (!target.isDir && canRead && (isPreviewMedia(target.item.name) || isTextFile(target.item.name))) actions.push(['预览', 'contextPreview']);
-        if (!target.isDir && canDownload) actions.push(['下载', 'contextDownload']);
+        if (!target.isDir && canRead && canPreviewFile(target.item.name)) actions.push(['预览', 'contextPreview']);
+        if (!target.isDir && canRead) actions.push(['编辑', 'contextEdit']);
         if (!target.isDir && canDownload) actions.push(['下载', 'contextDownload']);
         if (target.item && target.item.name !== '..' && canRename) actions.push(['重命名', 'contextRename']);
         if (target.item && target.item.name !== '..' && canDelete) actions.push(['删除', 'contextDelete']);
@@ -845,36 +825,38 @@ function createFileItem(item, basePath) {
     const itemPath = item.name === '..'
         ? normalizePath(basePath)
         : joinPath(basePath, item.name);
+    const escapedItemPath = escapePathForOnclick(itemPath);
 
     const canRead = hasPanelPermission('files.read');
     const canDelete = hasPanelPermission('files.delete');
     const canDownload = hasPanelPermission('files.download');
+    const canPreview = !isDir && canRead && canPreviewFile(item.name);
 
-    const iname = item.name;
-    const showEdit    = !isDir && canRead && !isPreviewMedia(iname);
-    const showPreview = !isDir && canRead && (isPreviewMedia(iname) || isTextFile(iname));
     div.innerHTML = `
         <span class="file-icon">${icon}</span>
         <div class="file-info">
-            <div class="file-name">${iname}</div>
+            <div class="file-name">${item.name}</div>
             ${item.size !== undefined ? `<div class="file-meta">${formatBytes(item.size)} | ${item.permissions || ''}</div>` : ''}
         </div>
         <div class="file-actions-btn">
-            ${showEdit    ? `<button class="btn btn-sm btn-primary"   onclick="editFile('${itemPath}'); event.stopPropagation();">编辑</button>` : ''}
-            ${showPreview ? `<button class="btn btn-sm btn-secondary"  onclick="previewFile('${itemPath}'); event.stopPropagation();">预览</button>` : ''}
-            ${!isDir && canDownload ? `<button class="btn btn-sm" style="background:#5d7a8a;color:#fff" onclick="downloadFile('${itemPath}'); event.stopPropagation();">下载</button>` : ''}
-            ${iname !== '..' && canDelete ? `<button class="btn btn-sm btn-danger" onclick="deleteItem('${itemPath}'); event.stopPropagation();">删除</button>` : ''}
+            ${canPreview ? `
+                <button class="btn btn-sm" onclick="previewFile('${escapedItemPath}', '${escapePathForOnclick(item.name)}'); event.stopPropagation();">预览</button>
+            ` : ''}
+            ${!isDir && canRead ? `
+                <button class="btn btn-sm btn-primary" onclick="editFile('${escapedItemPath}'); event.stopPropagation();">编辑</button>
+            ` : ''}
+            ${!isDir && canDownload ? `
+                <button class="btn btn-sm btn-secondary" onclick="downloadFile('${escapedItemPath}'); event.stopPropagation();">下载</button>
+            ` : ''}
+            ${item.name !== '..' && canDelete ? `
+                <button class="btn btn-sm btn-danger" onclick="deleteItem('${escapedItemPath}'); event.stopPropagation();">删除</button>
+            ` : ''}
         </div>
     `;
 
     if (isDir && canRead) {
         div.onclick = () => loadFiles(itemPath);
         div.style.cursor = 'pointer';
-    } else if (!isDir && canRead && iname !== '..') {
-        div.style.cursor = 'pointer';
-        div.ondblclick = () => {
-            if (isPreviewMedia(iname) || isTextFile(iname)) previewFile(itemPath);
-        };
     }
 
     div.oncontextmenu = (event) => {
@@ -909,7 +891,7 @@ function contextEdit() {
 function contextPreview() {
     if (fileContextTarget && !fileContextTarget.isDir) {
         hideFileContextMenu();
-        previewFile(fileContextTarget.itemPath);
+        previewFile(fileContextTarget.itemPath, fileContextTarget.item.name);
     }
 }
 
@@ -972,6 +954,55 @@ async function editFile(path) {
     } catch (error) {
         alert('读取文件失败: ' + error.message);
     }
+}
+
+async function previewFile(path, filename = '') {
+    const ext = getFileExtension(filename || path.split('/').pop());
+    const previewModal = document.getElementById('preview-modal');
+    const previewFilename = document.getElementById('preview-filename');
+    const previewContent = document.getElementById('preview-content');
+    if (!previewModal || !previewFilename || !previewContent) return;
+
+    previewingFile = path;
+    previewFilename.textContent = path;
+    previewContent.innerHTML = '<div class="preview-loading">加载预览中...</div>';
+    previewModal.classList.add('active');
+
+    if (IMAGE_PREVIEW_EXTS.has(ext)) {
+        previewContent.innerHTML = `<img src="/api/files/preview?path=${encodeURIComponent(path)}" alt="预览图片" class="preview-image">`;
+        return;
+    }
+    if (AUDIO_PREVIEW_EXTS.has(ext)) {
+        previewContent.innerHTML = `<audio controls class="preview-media"><source src="/api/files/preview?path=${encodeURIComponent(path)}"></audio>`;
+        return;
+    }
+    if (VIDEO_PREVIEW_EXTS.has(ext)) {
+        previewContent.innerHTML = `<video controls class="preview-media"><source src="/api/files/preview?path=${encodeURIComponent(path)}"></video>`;
+        return;
+    }
+    if (IFRAME_PREVIEW_EXTS.has(ext)) {
+        previewContent.innerHTML = `<iframe src="/api/files/preview?path=${encodeURIComponent(path)}" class="preview-iframe" title="文件预览"></iframe>`;
+        return;
+    }
+
+    try {
+        const data = await apiCall(`/api/files/read?path=${encodeURIComponent(path)}`);
+        if (data.error) {
+            previewContent.innerHTML = `<div class="preview-error">预览失败: ${data.error}</div>`;
+            return;
+        }
+        previewContent.innerHTML = `<pre class="preview-text"></pre>`;
+        previewContent.querySelector('.preview-text').textContent = data.content || '';
+    } catch (error) {
+        previewContent.innerHTML = `<div class="preview-error">预览失败: ${error.message}</div>`;
+    }
+}
+
+function closePreview() {
+    document.getElementById('preview-modal').classList.remove('active');
+    const previewContent = document.getElementById('preview-content');
+    if (previewContent) previewContent.innerHTML = '';
+    previewingFile = null;
 }
 
 async function saveFile() {
@@ -1065,193 +1096,61 @@ function downloadFile(path) {
     window.open(`/api/files/download?path=${encodeURIComponent(path)}`, '_blank');
 }
 
-// ==================== Monaco 编辑器 ====================
-
-function loadMonaco(cb) {
-    if (window.monaco) { cb(); return; }
-    monacoLoadCbs.push(cb);
-    if (monacoIsLoading) return;
-    monacoIsLoading = true;
-    require(['vs/editor/editor.main'], function () {
-        monacoIsLoading = false;
-        const cbs = monacoLoadCbs.splice(0);
-        cbs.forEach(fn => fn());
-    });
+function createFolder() {
+    openCreateItemModal('folder');
 }
 
-function getOrCreateMonacoEditor() {
-    if (monacoEditorInstance) return monacoEditorInstance;
-    const isDark = !document.body.classList.contains('light-theme');
-    monacoEditorInstance = monaco.editor.create(
-        document.getElementById('monaco-editor-container'),
-        {
-            value: '',
-            language: 'plaintext',
-            theme: isDark ? 'vs-dark' : 'vs',
-            fontSize: 14,
-            tabSize: 4,
-            insertSpaces: true,
-            wordWrap: 'off',
-            minimap: { enabled: true },
-            scrollBeyondLastLine: false,
-            automaticLayout: true,
-            renderWhitespace: 'selection',
-        }
-    );
-    // Ctrl+S 保存
-    monacoEditorInstance.addCommand(
-        monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
-        () => saveFile()
-    );
-    return monacoEditorInstance;
+function createFile() {
+    openCreateItemModal('file');
 }
 
-async function editFile(path) {
-    if (!hasPanelPermission('files.read')) { showMessage('无读取权限', 'error'); return; }
+function openCreateItemModal(type) {
+    const modal = document.getElementById('create-item-modal');
+    const title = document.getElementById('create-item-title');
+    const input = document.getElementById('create-item-name');
+    const placeholder = document.getElementById('create-item-placeholder');
+    modal.dataset.type = type;
+    title.textContent = type === 'folder' ? '新建文件夹' : '新建文件';
+    placeholder.textContent = type === 'folder' ? '文件夹名称' : '文件名';
+    input.value = '';
+    input.placeholder = type === 'folder' ? '请输入文件夹名称' : '请输入文件名';
+    modal.classList.add('active');
+    setTimeout(() => input.focus(), 50);
+}
+
+function closeCreateItemModal() {
+    document.getElementById('create-item-modal').classList.remove('active');
+}
+
+async function submitCreateItem() {
+    const modal = document.getElementById('create-item-modal');
+    const type = modal.dataset.type;
+    const name = document.getElementById('create-item-name').value.trim();
+    if (!name) return;
+
+    const path = joinPath(currentPath, name);
     try {
-        const data = await apiCall(`/api/files/read?path=${encodeURIComponent(path)}`);
-        if (data.error) { showMessage('读取文件失败: ' + data.error, 'error'); return; }
-
-        editingFile = path;
-        const filename = path.split('/').pop();
-        const lang = getFileLang(filename);
-
-        document.getElementById('editor-filename').textContent = filename;
-        const badge = document.getElementById('editor-lang-badge');
-        badge.textContent = lang;
-        badge.style.display = '';
-        document.getElementById('editor-modal').classList.add('active');
-
-        loadMonaco(function () {
-            const editor = getOrCreateMonacoEditor();
-            const oldModel = editor.getModel();
-            if (oldModel) oldModel.dispose();
-            const model = monaco.editor.createModel(data.content || '', lang);
-            editor.setModel(model);
-            editor.focus();
-        });
-    } catch (error) {
-        showMessage('读取文件失败: ' + error.message, 'error');
-    }
-}
-
-async function saveFile() {
-    if (!editingFile || !monacoEditorInstance) return;
-    const content = monacoEditorInstance.getValue();
-    try {
-        const result = await apiCall('/api/files/write', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ path: editingFile, content })
-        });
-        if (result.success) {
-            showMessage('保存成功', 'success');
+        let result;
+        if (type === 'folder') {
+            result = await apiCall('/api/files/mkdir', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path }) });
         } else {
-            showMessage('保存失败: ' + result.error, 'error');
+            result = await apiCall('/api/files/write', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path, content: '' }) });
+        }
+        closeCreateItemModal();
+        if (result.success) {
+            showMessage('创建成功', 'success');
+            loadFiles(currentPath);
+        } else {
+            showMessage('创建失败: ' + result.error, 'error');
         }
     } catch (error) {
-        showMessage('保存失败: ' + error.message, 'error');
+        showMessage('创建失败: ' + error.message, 'error');
     }
 }
 
-function closeEditor() {
-    document.getElementById('editor-modal').classList.remove('active');
-    editingFile = null;
-    if (monacoEditorInstance) {
-        const m = monacoEditorInstance.getModel();
-        if (m) m.dispose();
-    }
-}
-
-// ==================== 文件预览 ====================
-
-let previewCurrentPath = null;
-
-function loadHighlightJs(cb) {
-    if (window.hljs) { cb(); return; }
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css';
-    document.head.appendChild(link);
-    const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js';
-    s.onload = cb;
-    document.head.appendChild(s);
-}
-
-async function previewFile(path) {
-    const filename = path.split('/').pop();
-    previewCurrentPath = path;
-
-    document.getElementById('preview-filename').textContent = filename;
-    const body = document.getElementById('preview-body');
-    body.innerHTML = '<div class="preview-loading">加载中...</div>';
-
-    const editBtn = document.getElementById('preview-edit-btn');
-    const badge = document.getElementById('preview-lang-badge');
-    badge.style.display = 'none';
-    editBtn.style.display = isTextFile(filename) ? '' : 'none';
-
-    document.getElementById('file-preview-modal').classList.add('active');
-
-    const dlUrl = `/api/files/download?path=${encodeURIComponent(path)}`;
-
-    if (isImageFile(filename)) {
-        body.innerHTML = `<img src="${dlUrl}" alt="${filename}" loading="lazy">`;
-    } else if (isVideoFile(filename)) {
-        body.innerHTML = `<video controls style="max-width:100%;max-height:100%"><source src="${dlUrl}"><p style="color:#ccc;padding:1rem">浏览器不支持该视频格式</p></video>`;
-    } else if (isAudioFile(filename)) {
-        body.innerHTML = `<audio controls style="width:80%;margin:3rem auto;display:block"><source src="${dlUrl}"><p style="color:#ccc;padding:1rem">浏览器不支持该音频格式</p></audio>`;
-    } else if (isPdfFile(filename)) {
-        body.style.alignItems = 'stretch';
-        body.innerHTML = `<iframe src="${dlUrl}" style="width:100%;height:100%;border:none"></iframe>`;
-    } else if (isTextFile(filename)) {
-        // Text preview with syntax highlighting
-        body.style.alignItems = 'flex-start';
-        badge.textContent = getFileLang(filename);
-        badge.style.display = '';
-        try {
-            const data = await apiCall(`/api/files/read?path=${encodeURIComponent(path)}`);
-            if (data.error) {
-                body.innerHTML = `<p style="color:#e74c3c;padding:1rem">读取失败: ${data.error}</p>`;
-                return;
-            }
-            loadHighlightJs(function () {
-                const lang = getFileLang(filename);
-                let highlighted;
-                try {
-                    highlighted = hljs.highlight(data.content || '', { language: lang, ignoreIllegals: true }).value;
-                } catch (e) {
-                    highlighted = hljs.highlightAuto(data.content || '').value;
-                }
-                body.innerHTML = `<pre class="hljs-pre hljs"><code>${highlighted}</code></pre>`;
-            });
-        } catch (err) {
-            body.innerHTML = `<p style="color:#e74c3c;padding:1rem">读取失败: ${err.message}</p>`;
-        }
-    } else {
-        body.innerHTML = `<div class="preview-loading">无法预览此类型文件<br><small style="color:#666">${getFileExt(filename) || '未知格式'}</small></div>`;
-    }
-}
-
-function closePreview() {
-    document.getElementById('file-preview-modal').classList.remove('active');
-    const body = document.getElementById('preview-body');
-    body.innerHTML = '';
-    body.style.alignItems = '';
-    previewCurrentPath = null;
-}
-
-function editFileFromPreview() {
-    if (previewCurrentPath) {
-        closePreview();
-        editFile(previewCurrentPath);
-    }
-}
-
-function downloadFileFromPreview() {
-    if (previewCurrentPath) downloadFile(previewCurrentPath);
-}
+function uploadFile() {
+    const input = document.createElement('input');
+    input.type = 'file';
     input.onchange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;

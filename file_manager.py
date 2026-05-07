@@ -76,6 +76,22 @@ class FileManager:
             return {'success': True}
         except Exception as e:
             return {'error': str(e)}
+
+    def write_file_bytes(self, path, content_bytes):
+        """写入二进制文件内容"""
+        try:
+            full_path = os.path.join(self.root_path, path.lstrip('/'))
+            if not self._is_safe_path(full_path):
+                return {'error': '无权访问此文件'}
+
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+
+            with open(full_path, 'wb') as f:
+                f.write(content_bytes)
+
+            return {'success': True}
+        except Exception as e:
+            return {'error': str(e)}
     
     def delete_file(self, path):
         """删除文件或目录"""
