@@ -527,6 +527,18 @@ body {
     gap: 0.5rem;
 }
 
+.file-nav-btn {
+    min-width: 2rem;
+    padding: 0.3rem 0.5rem;
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.file-nav-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
 .path-input {
     flex: 1;
     padding: 0.3rem 0.6rem;

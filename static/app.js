@@ -544,6 +544,8 @@ let editingFile = null;
 let filesHomePath = '/home/pi';
 let filesInitialized = false;
 let fileContextTarget = null;
+let fileHistory = [];
+let fileHistoryIndex = -1;
 
 function escapePathForOnclick(path) {
     return path.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -575,8 +577,28 @@ async function initFilesPage() {
     loadFiles(currentPath || filesHomePath || '/');
 }
 
-async function loadFiles(path) {
+function fileNavBack() {
+    if (fileHistoryIndex > 0) {
+        fileHistoryIndex--;
+        loadFiles(fileHistory[fileHistoryIndex], false);
+    }
+}
+
+function fileNavForward() {
+    if (fileHistoryIndex < fileHistory.length - 1) {
+        fileHistoryIndex++;
+        loadFiles(fileHistory[fileHistoryIndex], false);
+    }
+}
+
+async function loadFiles(path, pushHistory = true) {
     currentPath = normalizePath(path);
+
+    if (pushHistory) {
+        fileHistory = fileHistory.slice(0, fileHistoryIndex + 1);
+        fileHistory.push(currentPath);
+        fileHistoryIndex = fileHistory.length - 1;
+    }
     
     try {
         const data = await apiCall(`/api/files/list?path=${encodeURIComponent(currentPath)}`);
@@ -614,13 +636,13 @@ async function loadFiles(path) {
 
 function updateBreadcrumb(path) {
     const breadcrumb = document.getElementById('breadcrumb');
+    const canBack = fileHistoryIndex > 0;
+    const canForward = fileHistoryIndex < fileHistory.length - 1;
 
     let html = `
-        <div class="breadcrumb-nav">
-            <a class="breadcrumb-btn" href="#" onclick="loadFiles('/'); return false;">根目录 /</a>
-            <a class="breadcrumb-btn" href="#" onclick="loadFiles('${escapePathForOnclick(filesHomePath)}'); return false;">用户目录 ${filesHomePath}</a>
-        </div>
         <div class="breadcrumb-address">
+            <button class="btn btn-sm file-nav-btn" onclick="fileNavBack()" ${canBack ? '' : 'disabled'} title="后退">←</button>
+            <button class="btn btn-sm file-nav-btn" onclick="fileNavForward()" ${canForward ? '' : 'disabled'} title="前进">→</button>
             <input type="text" id="path-input" class="path-input" value="${path.replace(/"/g, '&quot;')}" spellcheck="false"
                 onkeydown="if(event.key==='Enter'){navigateToInputPath();event.preventDefault();}"
                 onclick="this.select()">
