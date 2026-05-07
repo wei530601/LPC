@@ -544,8 +544,8 @@ let editingFile = null;
 let filesHomePath = '/home/pi';
 let filesInitialized = false;
 let fileContextTarget = null;
-let fileHistory = [];
-let fileHistoryIndex = -1;
+let filePathHistory = [];
+let filePathHistoryIndex = -1;
 
 function escapePathForOnclick(path) {
     return path.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -577,28 +577,54 @@ async function initFilesPage() {
     loadFiles(currentPath || filesHomePath || '/');
 }
 
-function fileNavBack() {
-    if (fileHistoryIndex > 0) {
-        fileHistoryIndex--;
-        loadFiles(fileHistory[fileHistoryIndex], false);
-    }
+function pushPathHistory(path) {
+    if (filePathHistory[filePathHistoryIndex] === path) return;
+    filePathHistory = filePathHistory.slice(0, filePathHistoryIndex + 1);
+    filePathHistory.push(path);
+    filePathHistoryIndex = filePathHistory.length - 1;
+    updateNavButtons();
 }
 
-function fileNavForward() {
-    if (fileHistoryIndex < fileHistory.length - 1) {
-        fileHistoryIndex++;
-        loadFiles(fileHistory[fileHistoryIndex], false);
-    }
+function updateNavButtons() {
+    const backBtn = document.getElementById('files-nav-back');
+    const fwdBtn = document.getElementById('files-nav-forward');
+    if (backBtn) backBtn.disabled = filePathHistoryIndex <= 0;
+    if (fwdBtn) fwdBtn.disabled = filePathHistoryIndex >= filePathHistory.length - 1;
 }
 
-async function loadFiles(path, pushHistory = true) {
+function filesNavBack() {
+    if (filePathHistoryIndex <= 0) return;
+    filePathHistoryIndex--;
+    loadFilesNoHistory(filePathHistory[filePathHistoryIndex]);
+}
+
+function filesNavForward() {
+    if (filePathHistoryIndex >= filePathHistory.length - 1) return;
+    filePathHistoryIndex++;
+    loadFilesNoHistory(filePathHistory[filePathHistoryIndex]);
+}
+
+async function loadFilesNoHistory(path) {
     currentPath = normalizePath(path);
-
-    if (pushHistory) {
-        fileHistory = fileHistory.slice(0, fileHistoryIndex + 1);
-        fileHistory.push(currentPath);
-        fileHistoryIndex = fileHistory.length - 1;
+    try {
+        const data = await apiCall(`/api/files/list?path=${encodeURIComponent(currentPath)}`);
+        if (data.error) { showMessage('加载失败: ' + data.error, 'error'); return; }
+        updateBreadcrumb(currentPath);
+        const fileList = document.getElementById('file-list');
+        fileList.innerHTML = '';
+        if (currentPath !== '/') {
+            const parentDir = currentPath.split('/').slice(0, -1).join('/') || '/';
+            fileList.appendChild(createFileItem({ name: '..', type: 'directory' }, parentDir));
+        }
+        data.items.forEach(item => fileList.appendChild(createFileItem(item, currentPath)));
+    } catch (error) {
+        showMessage('加载失败: ' + error.message, 'error');
     }
+}
+
+async function loadFiles(path) {
+    currentPath = normalizePath(path);
+    pushPathHistory(currentPath);
     
     try {
         const data = await apiCall(`/api/files/list?path=${encodeURIComponent(currentPath)}`);
@@ -636,13 +662,11 @@ async function loadFiles(path, pushHistory = true) {
 
 function updateBreadcrumb(path) {
     const breadcrumb = document.getElementById('breadcrumb');
-    const canBack = fileHistoryIndex > 0;
-    const canForward = fileHistoryIndex < fileHistory.length - 1;
 
     let html = `
         <div class="breadcrumb-address">
-            <button class="btn btn-sm file-nav-btn" onclick="fileNavBack()" ${canBack ? '' : 'disabled'} title="后退">←</button>
-            <button class="btn btn-sm file-nav-btn" onclick="fileNavForward()" ${canForward ? '' : 'disabled'} title="前进">→</button>
+            <button class="files-nav-btn" id="files-nav-back" onclick="filesNavBack()" title="后退">&#8592;</button>
+            <button class="files-nav-btn" id="files-nav-forward" onclick="filesNavForward()" title="前进">&#8594;</button>
             <input type="text" id="path-input" class="path-input" value="${path.replace(/"/g, '&quot;')}" spellcheck="false"
                 onkeydown="if(event.key==='Enter'){navigateToInputPath();event.preventDefault();}"
                 onclick="this.select()">
@@ -651,11 +675,30 @@ function updateBreadcrumb(path) {
     `;
 
     breadcrumb.innerHTML = html;
+    updateNavButtons();
 }
 
 function navigateToInputPath() {
-    const input = document.getElementById('path-input').value;
-    loadFiles(normalizePath(input));
+    const input = document.getElementById('path-input').value.trim();
+    const target = normalizePath(input);
+    if (target === currentPath) return;
+    document.getElementById('files-nav-confirm-target').textContent = target;
+    document.getElementById('files-nav-confirm-modal').dataset.target = target;
+    document.getElementById('files-nav-confirm-modal').classList.add('active');
+}
+
+function closeFilesNavConfirm() {
+    document.getElementById('files-nav-confirm-modal').classList.remove('active');
+    // 恢复输入框为当前路径
+    const input = document.getElementById('path-input');
+    if (input) input.value = currentPath;
+}
+
+function confirmFilesNav() {
+    const modal = document.getElementById('files-nav-confirm-modal');
+    const target = modal.dataset.target;
+    modal.classList.remove('active');
+    loadFiles(target);
 }
 
 function updateFileToolbar() {
@@ -964,57 +1007,55 @@ function downloadFile(path) {
 }
 
 function createFolder() {
-    const name = prompt('输入文件夹名称:');
-    if (!name) return;
-    
-    const path = joinPath(currentPath, name);
-    
-    fetch('/api/files/mkdir', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ path: path })
-    })
-    .then(res => res.json())
-    .then(result => {
-        if (result.success) {
-            alert('创建成功');
-            loadFiles(currentPath);
-        } else {
-            alert('创建失败: ' + result.error);
-        }
-    })
-    .catch(error => {
-        alert('创建失败: ' + error.message);
-    });
+    openCreateItemModal('folder');
 }
 
 function createFile() {
-    const name = prompt('输入文件名:');
+    openCreateItemModal('file');
+}
+
+function openCreateItemModal(type) {
+    const modal = document.getElementById('create-item-modal');
+    const title = document.getElementById('create-item-title');
+    const input = document.getElementById('create-item-name');
+    const placeholder = document.getElementById('create-item-placeholder');
+    modal.dataset.type = type;
+    title.textContent = type === 'folder' ? '新建文件夹' : '新建文件';
+    placeholder.textContent = type === 'folder' ? '文件夹名称' : '文件名';
+    input.value = '';
+    input.placeholder = type === 'folder' ? '请输入文件夹名称' : '请输入文件名';
+    modal.classList.add('active');
+    setTimeout(() => input.focus(), 50);
+}
+
+function closeCreateItemModal() {
+    document.getElementById('create-item-modal').classList.remove('active');
+}
+
+async function submitCreateItem() {
+    const modal = document.getElementById('create-item-modal');
+    const type = modal.dataset.type;
+    const name = document.getElementById('create-item-name').value.trim();
     if (!name) return;
-    
+
     const path = joinPath(currentPath, name);
-    
-    fetch('/api/files/write', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ path: path, content: '' })
-    })
-    .then(res => res.json())
-    .then(result => {
+    try {
+        let result;
+        if (type === 'folder') {
+            result = await apiCall('/api/files/mkdir', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path }) });
+        } else {
+            result = await apiCall('/api/files/write', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path, content: '' }) });
+        }
+        closeCreateItemModal();
         if (result.success) {
-            alert('创建成功');
+            showMessage('创建成功', 'success');
             loadFiles(currentPath);
         } else {
-            alert('创建失败: ' + result.error);
+            showMessage('创建失败: ' + result.error, 'error');
         }
-    })
-    .catch(error => {
-        alert('创建失败: ' + error.message);
-    });
+    } catch (error) {
+        showMessage('创建失败: ' + error.message, 'error');
+    }
 }
 
 function uploadFile() {
@@ -1504,13 +1545,18 @@ async function performUpdate() {
         const data = await response.json();
         
         if (data.success) {
+            showUpdateMessage('更新成功！' + data.message, 'success');
             updateBtn.style.display = 'none';
             forceUpdateBtn.style.display = 'none';
-            autoRestartAfterUpdate();
+            restartBtn.style.display = 'inline-block';
+            
+            // 重新检查版本
+            setTimeout(checkForUpdates, 2000);
         } else {
             showUpdateMessage('更新失败: ' + data.error + '\n如果有本地修改冲突，请使用"强制更新"', 'error');
             updateBtn.disabled = false;
             updateBtn.textContent = '立即更新';
+            // 显示强制更新按钮
             forceUpdateBtn.style.display = 'inline-block';
         }
     } catch (error) {
@@ -1518,6 +1564,7 @@ async function performUpdate() {
         const updateBtn = document.getElementById('update-btn');
         updateBtn.disabled = false;
         updateBtn.textContent = '立即更新';
+        // 显示强制更新按钮
         document.getElementById('force-update-btn').style.display = 'inline-block';
     }
 }
@@ -1540,9 +1587,13 @@ async function forceUpdate() {
         const data = await response.json();
         
         if (data.success) {
+            showUpdateMessage('强制更新成功！' + data.message, 'success');
             forceUpdateBtn.style.display = 'none';
             updateBtn.style.display = 'none';
-            autoRestartAfterUpdate();
+            restartBtn.style.display = 'inline-block';
+            
+            // 重新检查版本
+            setTimeout(checkForUpdates, 2000);
         } else {
             showUpdateMessage('强制更新失败: ' + data.error, 'error');
             forceUpdateBtn.disabled = false;
@@ -1553,42 +1604,6 @@ async function forceUpdate() {
         const forceUpdateBtn = document.getElementById('force-update-btn');
         forceUpdateBtn.disabled = false;
         forceUpdateBtn.textContent = '强制更新';
-    }
-}
-
-// 更新完成后自动重启（倒计时提示）
-async function autoRestartAfterUpdate() {
-    let countdown = 3;
-    const tick = () => {
-        showUpdateMessage(`更新成功！将在 ${countdown} 秒后自动重启面板...`, 'success');
-        if (countdown <= 0) {
-            triggerRestart();
-        } else {
-            countdown--;
-            setTimeout(tick, 1000);
-        }
-    };
-    tick();
-}
-
-async function triggerRestart() {
-    try {
-        showUpdateMessage('正在重启应用...', 'warning');
-        const response = await fetch('/api/update/restart', { method: 'POST' });
-        const data = await response.json();
-        if (data.success) {
-            showUpdateMessage('应用正在重启，页面将在5秒后刷新...', 'success');
-            setTimeout(() => window.location.reload(), 5000);
-        } else if (data.manual) {
-            showUpdateMessage('更新成功！' + data.error, 'warning');
-            document.getElementById('restart-btn').style.display = 'inline-block';
-        } else {
-            showUpdateMessage('重启失败: ' + data.error, 'error');
-            document.getElementById('restart-btn').style.display = 'inline-block';
-        }
-    } catch (error) {
-        showUpdateMessage('重启请求失败，请手动重启应用', 'warning');
-        document.getElementById('restart-btn').style.display = 'inline-block';
     }
 }
 

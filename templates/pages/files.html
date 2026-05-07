@@ -20,4 +20,41 @@
                 </div>
 
                 <div id="file-context-menu" class="file-context-menu"></div>
+
+                <!-- 路径跳转确认弹窗 -->
+                <div class="modal" id="files-nav-confirm-modal">
+                    <div class="modal-content" style="max-width:380px">
+                        <div class="modal-header">
+                            <h3>确认跳转</h3>
+                            <button class="modal-close" onclick="closeFilesNavConfirm()">✕</button>
+                        </div>
+                        <div class="modal-body">
+                            <p>确认跳转到：</p>
+                            <p style="margin-top:0.5rem;font-family:monospace;word-break:break-all;font-size:0.95rem" id="files-nav-confirm-target"></p>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn" onclick="closeFilesNavConfirm()">取消</button>
+                            <button class="btn btn-primary" onclick="confirmFilesNav()">确认</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 新建文件夹/文件弹窗 -->
+                <div class="modal" id="create-item-modal">
+                    <div class="modal-content" style="max-width:380px">
+                        <div class="modal-header">
+                            <h3 id="create-item-title">新建文件夹</h3>
+                            <button class="modal-close" onclick="closeCreateItemModal()">✕</button>
+                        </div>
+                        <div class="modal-body">
+                            <label id="create-item-placeholder" style="display:block;margin-bottom:0.4rem;font-size:0.9rem">文件夹名称</label>
+                            <input type="text" id="create-item-name" class="path-input" style="width:100%;box-sizing:border-box"
+                                onkeydown="if(event.key==='Enter'){submitCreateItem();event.preventDefault();}">
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn" onclick="closeCreateItemModal()">取消</button>
+                            <button class="btn btn-primary" onclick="submitCreateItem()">确认</button>
+                        </div>
+                    </div>
+                </div>
             </div>

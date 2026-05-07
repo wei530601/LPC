@@ -491,31 +491,6 @@ body {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.breadcrumb-nav {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 0.5rem;
-    flex-wrap: wrap;
-}
-
-.breadcrumb-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.3rem 0.6rem;
-    border: 1px solid #d6dde3;
-    border-radius: 3px;
-    background: #f7f9fb;
-    color: #2c3e50;
-    text-decoration: none;
-    font-size: 0.85rem;
-}
-
-.breadcrumb-btn:hover {
-    background: #eef3f7;
-    text-decoration: none;
-}
-
 .breadcrumb-path {
     color: #5c6b77;
     font-size: 0.9rem;
@@ -524,19 +499,33 @@ body {
 .breadcrumb-address {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.4rem;
 }
 
-.file-nav-btn {
-    min-width: 2rem;
-    padding: 0.3rem 0.5rem;
-    font-size: 1rem;
+.files-nav-btn {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #d6dde3;
+    border-radius: 3px;
+    background: #f7f9fb;
+    color: #2c3e50;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: background 0.15s;
     line-height: 1;
 }
 
-.file-nav-btn:disabled {
+.files-nav-btn:hover:not(:disabled) {
+    background: #eef3f7;
+}
+
+.files-nav-btn:disabled {
     opacity: 0.35;
-    cursor: default;
+    cursor: not-allowed;
 }
 
 .path-input {
