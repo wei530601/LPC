@@ -91,24 +91,144 @@ body {
 }
 
 .sidebar-footer {
-    padding: 1rem 1.5rem;
+    margin-top: auto;
+    padding: 1rem 1rem 1.25rem;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
+    background: linear-gradient(180deg, rgba(22, 30, 40, 0) 0%, rgba(22, 30, 40, 0.65) 100%);
+}
+
+.notification-center {
+    position: relative;
+    margin-bottom: 0.7rem;
+}
+
+.notification-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.65rem 0.8rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.06);
+    color: #ecf0f1;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.notification-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.18);
+}
+
+.notification-badge {
+    min-width: 20px;
+    height: 20px;
+    line-height: 20px;
+    text-align: center;
+    padding: 0 6px;
+    font-size: 0.75rem;
+    border-radius: 999px;
+    background: #e74c3c;
+    color: #fff;
+}
+
+.notification-panel {
+    display: none;
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: calc(100% + 8px);
+    background: #1e2a36;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    overflow: hidden;
+    z-index: 1200;
+}
+
+.notification-panel.active {
+    display: block;
+}
+
+.notification-panel-header {
+    padding: 0.6rem 0.7rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+}
+
+.notification-list {
+    max-height: 280px;
+    overflow-y: auto;
+}
+
+.notification-empty {
+    padding: 0.8rem;
+    color: #95a5a6;
+    font-size: 0.85rem;
+    text-align: center;
+}
+
+.notification-item {
+    padding: 0.65rem 0.75rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 0.82rem;
+}
+
+.notification-item:last-child {
+    border-bottom: none;
+}
+
+.notification-title {
+    font-weight: 600;
+    margin-bottom: 0.2rem;
+}
+
+.notification-message {
+    color: #cfd8dc;
+    word-break: break-all;
+}
+
+.notification-time {
+    margin-top: 0.3rem;
+    font-size: 0.74rem;
+    color: #95a5a6;
+}
+
+.notification-item.info .notification-title {
+    color: #5dade2;
+}
+
+.notification-item.success .notification-title {
+    color: #58d68d;
+}
+
+.notification-item.error .notification-title {
+    color: #ec7063;
 }
 
 .logout-btn {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 100%;
-    padding: 0.75rem;
-    background: #e74c3c;
+    padding: 0.72rem;
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
     color: white;
     text-align: center;
     text-decoration: none;
-    border-radius: 3px;
-    transition: background 0.3s;
+    border-radius: 8px;
+    letter-spacing: 0.03em;
+    transition: transform 0.2s, filter 0.2s;
 }
 
 .logout-btn:hover {
-    background: #c0392b;
+    transform: translateY(-1px);
+    filter: brightness(1.05);
 }
 
 /* 主内容区�?*/
@@ -1255,6 +1375,7 @@ body {
     .nav-item span:not(.nav-icon),
     .nav-group-toggle span,
     .nav-group-arrow,
+    .notification-center,
     .sidebar-footer {
         display: none;
     }
@@ -2062,11 +2183,45 @@ body.light-theme .progress-bar {
 }
 
 body.light-theme .logout-btn {
-    background: #e74c3c;
+    background: linear-gradient(135deg, #ea5545 0%, #cf3f2e 100%);
 }
 
 body.light-theme .logout-btn:hover {
-    background: #c0392b;
+    filter: brightness(1.05);
+}
+
+body.light-theme .sidebar-footer {
+    border-top: 1px solid #e3e6ea;
+    background: linear-gradient(180deg, rgba(250, 251, 252, 0) 0%, rgba(250, 251, 252, 0.95) 100%);
+}
+
+body.light-theme .notification-btn {
+    background: #f6f8fb;
+    border-color: #dfe4ea;
+    color: #2c3e50;
+}
+
+body.light-theme .notification-btn:hover {
+    background: #eef2f7;
+}
+
+body.light-theme .notification-panel {
+    background: #fff;
+    border-color: #e4e8ee;
+}
+
+body.light-theme .notification-panel-header {
+    border-bottom: 1px solid #eef1f4;
+    color: #2c3e50;
+}
+
+body.light-theme .notification-message {
+    color: #4b5563;
+}
+
+body.light-theme .notification-time,
+body.light-theme .notification-empty {
+    color: #8091a5;
 }
 
 body.light-theme .badge {

@@ -57,6 +57,21 @@
     </ul>
     
     <div class="sidebar-footer">
-        <a href="/logout" class="logout-btn">退出登录</a>
+        <div class="notification-center" id="notification-center">
+            <button type="button" class="notification-btn" onclick="toggleNotificationCenter(event)">
+                <span>通知中心</span>
+                <span class="notification-badge" id="notification-badge" style="display:none;">0</span>
+            </button>
+            <div class="notification-panel" id="notification-panel">
+                <div class="notification-panel-header">
+                    <strong>操作通知</strong>
+                    <button type="button" class="btn btn-sm" onclick="markNotificationsRead()">全部已读</button>
+                </div>
+                <div class="notification-list" id="notification-list">
+                    <div class="notification-empty">暂无通知</div>
+                </div>
+            </div>
+        </div>
+        <a href="/logout" class="logout-btn">安全退出</a>
     </div>
 </nav>

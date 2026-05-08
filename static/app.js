@@ -1,5 +1,136 @@
 // ==================== API 调用辅助函数 ====================
 
+let operationNotifications = [];
+let unreadNotificationCount = 0;
+let notificationCenterReady = false;
+
+function shortenOperationUrl(url) {
+    if (!url) return '';
+    try {
+        const u = new URL(url, window.location.origin);
+        return `${u.pathname}${u.search}`;
+    } catch (_) {
+        return String(url);
+    }
+}
+
+function formatNotificationTime(ts) {
+    const d = new Date(ts);
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    const ss = String(d.getSeconds()).padStart(2, '0');
+    return `${hh}:${mm}:${ss}`;
+}
+
+function renderNotificationCenter() {
+    const listEl = document.getElementById('notification-list');
+    const badgeEl = document.getElementById('notification-badge');
+    if (!listEl || !badgeEl) return;
+
+    if (operationNotifications.length === 0) {
+        listEl.innerHTML = '<div class="notification-empty">暂无通知</div>';
+    } else {
+        listEl.innerHTML = operationNotifications.map(n => `
+            <div class="notification-item ${n.type}">
+                <div class="notification-title">${n.title}</div>
+                <div class="notification-message">${n.message}</div>
+                <div class="notification-time">${formatNotificationTime(n.timestamp)}</div>
+            </div>
+        `).join('');
+    }
+
+    if (unreadNotificationCount > 0) {
+        badgeEl.style.display = 'inline-block';
+        badgeEl.textContent = unreadNotificationCount > 99 ? '99+' : String(unreadNotificationCount);
+    } else {
+        badgeEl.style.display = 'none';
+        badgeEl.textContent = '0';
+    }
+}
+
+function notifyOperation(type, title, message) {
+    if (!notificationCenterReady) return;
+    operationNotifications.unshift({
+        type: type || 'info',
+        title: title || '通知',
+        message: message || '',
+        timestamp: Date.now()
+    });
+    if (operationNotifications.length > 120) {
+        operationNotifications = operationNotifications.slice(0, 120);
+    }
+
+    const panel = document.getElementById('notification-panel');
+    const panelOpen = panel && panel.classList.contains('active');
+    if (!panelOpen) unreadNotificationCount += 1;
+    renderNotificationCenter();
+}
+
+function toggleNotificationCenter(event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    const panel = document.getElementById('notification-panel');
+    if (!panel) return;
+    panel.classList.toggle('active');
+    if (panel.classList.contains('active')) {
+        unreadNotificationCount = 0;
+        renderNotificationCenter();
+    }
+}
+
+function markNotificationsRead() {
+    unreadNotificationCount = 0;
+    renderNotificationCenter();
+}
+
+function initNotificationCenter() {
+    notificationCenterReady = Boolean(document.getElementById('notification-center'));
+    if (!notificationCenterReady) return;
+    renderNotificationCenter();
+
+    document.addEventListener('click', (event) => {
+        const center = document.getElementById('notification-center');
+        const panel = document.getElementById('notification-panel');
+        if (!center || !panel) return;
+        if (!center.contains(event.target)) {
+            panel.classList.remove('active');
+        }
+    });
+
+    // 全局拦截 API 请求，实现操作开始/完成通知
+    const nativeFetch = window.fetch.bind(window);
+    window.fetch = async function(input, init = {}) {
+        const method = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
+        const url = typeof input === 'string' ? input : ((input && input.url) || '');
+        const shortUrl = shortenOperationUrl(url);
+        const isApiRequest = shortUrl.includes('/api/');
+        const operation = `${method} ${shortUrl}`;
+
+        if (isApiRequest) {
+            notifyOperation('info', '操作开始', operation);
+        }
+
+        try {
+            const response = await nativeFetch(input, init);
+            if (isApiRequest) {
+                if (response.ok) {
+                    notifyOperation('success', '操作完成', `${operation} (${response.status})`);
+                } else {
+                    notifyOperation('error', '操作失败', `${operation} (${response.status})`);
+                }
+            }
+            return response;
+        } catch (error) {
+            if (isApiRequest) {
+                notifyOperation('error', '操作失败', `${operation} (${error.message || 'network error'})`);
+            }
+            throw error;
+        }
+    };
+}
+
 /**
  * 包装fetch调用，统一处理401未授权错误和非JSON响应
  * @param {string} url - API端点URL
@@ -244,6 +375,7 @@ function loadTheme() {
 document.addEventListener('DOMContentLoaded', function() {
     loadTheme();
     initSystemMenuState();
+    initNotificationCenter();
     applySettings();
     startAlertChecking();
     initPageFromURL();
